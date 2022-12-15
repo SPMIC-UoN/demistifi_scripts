@@ -1,0 +1,68 @@
+OutputFolder: /share/ukbiobank/body_seg/stats/
+Debug: False
+
+Processing:
+  - Load:
+      data:
+        multiecho_pancreas.nii.gz: multiecho_pancreas
+        ideal_liver.nii.gz: ideal_liver
+      rois:
+        seg_pancreas_t1w.nii.gz: seg_pancreas_t1w
+        seg_liver_ideal.nii.gz: seg_liver_ideal
+        seg_kidney_left.nii.gz: seg_kidney_left_dixon
+        seg_kidney_right.nii.gz: seg_kidney_right_dixon
+        seg_liver_dixon.nii.gz: seg_liver_dixon
+        seg_spleen_dixon.nii.gz: seg_spleen_dixon
+
+  - Resample:
+      data: seg_pancreas_t1w
+      type: data
+      grid: multiecho_pancreas
+      order: 0
+      output-name: seg_pancreas_res
+
+  - Resample:
+      data: seg_liver_dixon
+      type: data
+      grid: ideal_liver
+      order: 0
+      output-name: seg_liver_res
+
+  - Resample:
+      data: seg_spleen_dixon
+      type: data
+      grid: ideal_liver
+      order: 0
+      output-name: seg_spleen_res
+
+  - DataStatistics:
+      data: multiecho_pancreas
+      roi: seg_pancreas_res
+      exact-median: True
+      output-name: pancreas_stats
+      
+  - DataStatistics:
+      data: ideal_liver
+      roi: seg_liver_res
+      exact-median: True
+      output-name: liver_stats
+      
+  - DataStatistics:
+      data: ideal_liver
+      roi: seg_spleen_res
+      exact-median: True
+      output-name: spleen_stats
+      
+  - SaveAllExcept:
+      multiecho_pancreas:
+      ideal_liver:
+      seg_pancreas:
+
+  - SaveExtras:
+      pancreas_stats: pancreas_stats.tsv
+      liver_stats: liver_stats.tsv
+      liver_stats: spleen_stats.tsv
+
+Cases:
+  SUBJID:
+    Folder: /share/ukbiobank/body_seg/SUBJID/qpdata/
