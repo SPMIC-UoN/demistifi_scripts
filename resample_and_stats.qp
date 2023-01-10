@@ -6,6 +6,9 @@ Processing:
       data:
         multiecho_pancreas.nii.gz: multiecho_pancreas
         ideal_liver.nii.gz: ideal_liver
+        shmolli_pancreas.nii.gz: ideal_liver
+        shmolli_kidney.nii.gz: shmolli_kidney
+        shmolli_liver.nii.gz: shmolli_liver
       rois:
         seg_pancreas_t1w.nii.gz: seg_pancreas_t1w
         seg_liver_ideal.nii.gz: seg_liver_ideal
@@ -36,27 +39,27 @@ Processing:
       output-name: seg_spleen_res
 
   - DataStatistics:
-      data: multiecho_pancreas
+      data: [multiecho_pancreas, shmolli_pancreas]
       roi: seg_pancreas_res
       exact-median: True
       output-name: pancreas_stats
-      
+
   - DataStatistics:
-      data: ideal_liver
+      data: [ideal_liver, shmolli_liver, shmolli_kidney]
       roi: seg_liver_res
       exact-median: True
       output-name: liver_stats
       
   - DataStatistics:
-      data: ideal_liver
+      data: [ideal_liver, shmolli_liver, shmolli_kidney]
       roi: seg_spleen_res
       exact-median: True
       output-name: spleen_stats
       
-  - SaveAllExcept:
-      multiecho_pancreas:
-      ideal_liver:
-      seg_pancreas:
+  - Save:
+      seg_pancreas_res:
+      seg_liver_res:
+      seg_spleen_res:
 
   - SaveExtras:
       pancreas_stats: pancreas_stats.tsv
