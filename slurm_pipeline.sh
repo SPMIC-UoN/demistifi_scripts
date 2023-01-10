@@ -1,10 +1,10 @@
-#!/bin/bash -x
+#!/bin/bash
 #SBATCH --partition=imgcomputeq
 #SBATCH --qos=img
 #SBATCH --ntasks=1
 #SBATCH --mem=16g
 #SBATCH --time=02:00:00
-#SBATCH --array=1-10
+#SBATCH --array=21-30
 #SBATCH --job-name=ukbbseg
 
 module load ukbbseg-img
@@ -35,6 +35,7 @@ echo "DONE preprocessing for subject ${SUBJECT}"
 SUBJECT_ID=`ls "${PREPROC_OUTDIR}"`
 echo $SUBJECT_ID > "${SUBJECT_OUTDIR}/subjid.txt"
 NIFTI_DIR=$PREPROC_OUTDIR/$SUBJECT_ID/nifti
+TMP_NIFTI_DIR=$PREPROC_OUTDIR/$SUBJECT_ID/tmp/nifti_series
 
 SEG_MODELS_DIR=/software/imaging/ukbbseg/ukbb-mri-sseg/trained_models
 
@@ -78,22 +79,32 @@ infer_liver_ideal_multiecho --action=infer \
 
 echo "DONE liver ideal segmentation for subject ${SUBJECT}"
 
-echo "Extracting ROI stats for  ${SUBJECT}"
+echo "Linking segmentation and data sets for subject ${SUBJECT}"
 
 QP_DATA_DIR=${SUBJECT_OUTDIR}/qpdata
+rm -rf "$QP_DATA_DIR"
 mkdir -p "$QP_DATA_DIR"
-ln -s "$NIFTI_DIR/multiecho_pancreas_magnitude.nii.gz" "$QP_DATA_DIR/multiecho_pancreas.nii.gz"
-ln -s "$NIFTI_DIR/ideal_liver_magnitude.nii.gz" "$QP_DATA_DIR/ideal_liver.nii.gz"
 ln -s "$SEG_OUTDIR/pancreas_t1w_sseg/${SUBJECT_ID}.nii.gz" "$QP_DATA_DIR/seg_pancreas_t1w.nii.gz"
-ln -s "$SEG_OUTDIR/ideal_liver_sseg/${SUBJECT_ID}.nii.gz" "$QP_DATA_DIR/seg_liver_ideal.nii.gz"
+ln -s "$SEG_OUTDIR/ideal_liver_seg/${SUBJECT_ID}.nii.gz" "$QP_DATA_DIR/seg_liver_ideal.nii.gz"
 ln -s "$SEG_OUTDIR/knee_to_neck_dixon_seg/otsu_prob_argmax_liver.nii.gz" "$QP_DATA_DIR/seg_liver_dixon.nii.gz"
 ln -s "$SEG_OUTDIR/knee_to_neck_dixon_seg/otsu_prob_argmax_kidney_right.nii.gz" "$QP_DATA_DIR/seg_kidney_right_dixon.nii.gz"
 ln -s "$SEG_OUTDIR/knee_to_neck_dixon_seg/otsu_prob_argmax_kidney_left.nii.gz" "$QP_DATA_DIR/seg_kidney_left_dixon.nii.gz"
 ln -s "$SEG_OUTDIR/knee_to_neck_dixon_seg/otsu_prob_argmax_spleen.nii.gz" "$QP_DATA_DIR/seg_spleen_dixon.nii.gz"
 
-QP_SCRIPT=/share/ukbiobank/body_seg/stats.qp
-sed "s/SUBJID/$SUBJECT/g" $QP_SCRIPT > $QP_DATA_DIR/stats.qp
-quantiphyse --batch=$QP_DATA_DIR/stats.qp
+ln -s "$NIFTI_DIR/multiecho_pancreas_magnitude.nii.gz" "$QP_DATA_DIR/multiecho_pancreas.nii.gz"
+ln -s "$NIFTI_DIR/ideal_liver_magnitude.nii.gz" "$QP_DATA_DIR/ideal_liver.nii.gz"
+ln -s $TMP_NIFTI_DIR/*_mag_ShMOLLI_*LIVER.nii.gz "$QP_DATA_DIR/shmolli_liver.nii.gz"
+ln -s $TMP_NIFTI_DIR/*_mag_ShMOLLI_*pancreas.nii.gz "$QP_DATA_DIR/shmolli_pancreas.nii.gz"
+ln -s $TMP_NIFTI_DIR/*_mag_ShMOLLI_*KIDNEY.nii.gz "$QP_DATA_DIR/shmolli_kidney.nii.gz"
+
+echo "DONE Linking segmentation and data sets for subject ${SUBJECT}"
+
+echo "Extracting ROI stats for  ${SUBJECT}"
+
+QP_SCRIPT=/share/ukbiobank/body_seg/resample_and_stats.qp
+rm -rf "$QP_DATA_DIR/resample_and_stats.qp"
+sed "s/SUBJID/$SUBJECT/g" $QP_SCRIPT > $QP_DATA_DIR/resample_and_stats.qp
+quantiphyse --batch=$QP_DATA_DIR/resample_and_stats.qp
 
 echo "DONE Extracting ROI stats for  ${SUBJECT}"
 
