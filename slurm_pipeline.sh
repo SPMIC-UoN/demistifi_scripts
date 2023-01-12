@@ -4,11 +4,13 @@
 #SBATCH --ntasks=1
 #SBATCH --mem=16g
 #SBATCH --time=02:00:00
-#SBATCH --array=21-30
+#SBATCH --array=1-50
 #SBATCH --job-name=ukbbseg
 
 module load ukbbseg-img
 module load quantiphyse-img
+module load renal-preproc-img
+module load dcm2niix-img
 export PYTHONIOENCODING=utf_8
 
 DATA_DIR=/share/ukbiobank/Release_1_body/
@@ -28,11 +30,20 @@ mkdir -p "${SEG_OUTDIR}"
 
 echo "Doing preprocessing for subject ${SUBJECT}"
 
-r-coh.py process "${SUBJECT_INDIR}" "${PREPROC_OUTDIR}" --biobank-project=None
+r-coh.py process "${SUBJECT_INDIR}" "${PREPROC_OUTDIR}" --biobank-project=None 2>&1 >"OUTDIR/logfile.txt"
+SUBJECT_ID=`ls "${PREPROC_OUTDIR}"`
+mv $OUTDIR/logfile.txt ${PREPROC_OUTDIR}/$SUBJECT_ID/
 
 echo "DONE preprocessing for subject ${SUBJECT}"
 
-SUBJECT_ID=`ls "${PREPROC_OUTDIR}"`
+echo "Doing renal preprocessing for subject ${SUBJECT}"
+
+RENAL_OUTDIR=${PREPROC_OUTDIR}/$SUBJECT_ID/renal
+mkdir -p "$PREPROC_OUTDIR/$SUBJECT_ID/renal"
+renal-preproc --indir "$PREPROC_OUTDIR/$SUBJECT_ID/tmp/dicom_series/" --outdir "$PREPROC_OUTDIR/$SUBJECT_ID/renal" --t2star-matcher=_gre_ --t2star-method=loglin --overwrite 2>"$PREPROC_OUTDIR/$SUBJECT_ID/renal/err.txt" >"$PREPROC_OUTDIR/$SUBJECT_ID/renal/logfile.txt"
+
+echo "DONE renal preprocessing for subject ${SUBJECT}"
+
 echo $SUBJECT_ID > "${SUBJECT_OUTDIR}/subjid.txt"
 NIFTI_DIR=$PREPROC_OUTDIR/$SUBJECT_ID/nifti
 TMP_NIFTI_DIR=$PREPROC_OUTDIR/$SUBJECT_ID/tmp/nifti_series
@@ -91,11 +102,17 @@ ln -s "$SEG_OUTDIR/knee_to_neck_dixon_seg/otsu_prob_argmax_kidney_right.nii.gz" 
 ln -s "$SEG_OUTDIR/knee_to_neck_dixon_seg/otsu_prob_argmax_kidney_left.nii.gz" "$QP_DATA_DIR/seg_kidney_left_dixon.nii.gz"
 ln -s "$SEG_OUTDIR/knee_to_neck_dixon_seg/otsu_prob_argmax_spleen.nii.gz" "$QP_DATA_DIR/seg_spleen_dixon.nii.gz"
 
-ln -s "$NIFTI_DIR/multiecho_pancreas_magnitude.nii.gz" "$QP_DATA_DIR/multiecho_pancreas.nii.gz"
-ln -s "$NIFTI_DIR/ideal_liver_magnitude.nii.gz" "$QP_DATA_DIR/ideal_liver.nii.gz"
 ln -s $TMP_NIFTI_DIR/*_mag_ShMOLLI_*LIVER.nii.gz "$QP_DATA_DIR/shmolli_liver.nii.gz"
 ln -s $TMP_NIFTI_DIR/*_mag_ShMOLLI_*pancreas.nii.gz "$QP_DATA_DIR/shmolli_pancreas.nii.gz"
 ln -s $TMP_NIFTI_DIR/*_mag_ShMOLLI_*KIDNEY.nii.gz "$QP_DATA_DIR/shmolli_kidney.nii.gz"
+ln -s "$NIFTI_DIR/multiecho_pancreas_magnitude.nii.gz" "$QP_DATA_DIR/multiecho_pancreas.nii.gz"
+ln -s "$NIFTI_DIR/ideal_liver_magnitude.nii.gz" "$QP_DATA_DIR/ideal_liver.nii.gz"
+ln -s $RENAL_OUTDIR/*_gre_*_pancreas*/t2star_out/*_loglin_t2star_map.nii.gz "$QP_DATA_DIR/t2star_pancreas.nii.gz"
+ln -s $RENAL_OUTDIR/*_gre_*_pancreas*/t2star_out/*_loglin_r2star_map.nii.gz "$QP_DATA_DIR/r2star_pancreas.nii.gz"
+ln -s $RENAL_OUTDIR/*_gre_*_kidney*/t2star_out/*_loglin_t2star_map.nii.gz "$QP_DATA_DIR/t2star_kidney.nii.gz"
+ln -s $RENAL_OUTDIR/*_gre_*_kidney*/t2star_out/*_loglin_r2star_map.nii.gz "$QP_DATA_DIR/r2star_kidney.nii.gz"
+ln -s $RENAL_OUTDIR/*_gre_*_liver*/t2star_out/*_loglin_t2star_map.nii.gz "$QP_DATA_DIR/t2star_liver.nii.gz"
+ln -s $RENAL_OUTDIR/*_gre_*_liver*/t2star_out/*_loglin_r2star_map.nii.gz "$QP_DATA_DIR/r2star_liver.nii.gz"
 
 echo "DONE Linking segmentation and data sets for subject ${SUBJECT}"
 
