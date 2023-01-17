@@ -4,7 +4,7 @@
 #SBATCH --ntasks=1
 #SBATCH --mem=16g
 #SBATCH --time=02:00:00
-#SBATCH --array=1-50
+#SBATCH --array=1-100
 #SBATCH --job-name=ukbbseg
 
 module load ukbbseg-img
@@ -30,9 +30,9 @@ mkdir -p "${SEG_OUTDIR}"
 
 echo "Doing preprocessing for subject ${SUBJECT}"
 
-r-coh.py process "${SUBJECT_INDIR}" "${PREPROC_OUTDIR}" --biobank-project=None 2>&1 >"OUTDIR/logfile.txt"
+r-coh.py process "${SUBJECT_INDIR}" "${PREPROC_OUTDIR}" --biobank-project=None 2>&1 >"$SUBJECT_OUTDIR/logfile.txt"
 SUBJECT_ID=`ls "${PREPROC_OUTDIR}"`
-mv $OUTDIR/logfile.txt ${PREPROC_OUTDIR}/$SUBJECT_ID/
+mv $SUBJECT_OUTDIR/logfile.txt ${PREPROC_OUTDIR}/$SUBJECT_ID/
 
 echo "DONE preprocessing for subject ${SUBJECT}"
 
