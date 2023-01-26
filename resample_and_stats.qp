@@ -73,7 +73,7 @@ Processing:
   - SaveExtras:
       pancreas_stats: pancreas_stats.tsv
       liver_stats: liver_stats.tsv
-      liver_stats: spleen_stats.tsv
+      spleen_stats: spleen_stats.tsv
 
 Cases:
   SUBJID:
