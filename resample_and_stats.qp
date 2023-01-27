@@ -12,7 +12,7 @@ Processing:
         t2star_pancreas.nii.gz: t2star_pancreas
         r2star_pancreas.nii.gz: r2star_pancreas
         t2star_kidney.nii.gz: t2star_kidney
-        r2star_kidney.nii.gz: t2star_kidney
+        r2star_kidney.nii.gz: r2star_kidney
         t2star_liver.nii.gz: t2star_liver
         r2star_liver.nii.gz: r2star_liver
       rois:
@@ -46,21 +46,21 @@ Processing:
 
   - DataStatistics:
       data: [t2star_pancreas, r2star_pancreas, shmolli_pancreas]
-      roi: seg_pancreas_res
+      roi: seg_pancreas_t1w
       stats: all
       exact-median: True
       output-name: pancreas_stats
 
   - DataStatistics:
       data: [t2star_liver, r2star_liver, shmolli_liver, t2star_kidney, r2star_kidney, shmolli_kidney]
-      roi: seg_liver_res
+      roi: seg_liver_dixon
       stats: all
       exact-median: True
       output-name: liver_stats
       
   - DataStatistics:
       data: [t2star_liver, r2star_liver, shmolli_liver, t2star_kidney, r2star_kidney, shmolli_kidney]
-      roi: seg_spleen_res
+      roi: seg_spleen_dixon
       stats: all
       exact-median: True
       output-name: spleen_stats
