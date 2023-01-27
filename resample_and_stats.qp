@@ -4,11 +4,11 @@ Debug: False
 Processing:
   - Load:
       data:
-        multiecho_pancreas.nii.gz: multiecho_pancreas
-        ideal_liver.nii.gz: ideal_liver
-        shmolli_pancreas.nii.gz: shmolli_pancreas
-        shmolli_kidney.nii.gz: shmolli_kidney
-        shmolli_liver.nii.gz: shmolli_liver
+        gradecho_pancreas.nii.gz: gradecho_pancreas
+        gradecho_liver.nii.gz: gradecho_liver
+        t1_pancreas.nii.gz: t1_pancreas
+        t1_kidney.nii.gz: t1_kidney
+        t1_liver.nii.gz: t1_liver
         t2star_pancreas.nii.gz: t2star_pancreas
         r2star_pancreas.nii.gz: r2star_pancreas
         t2star_kidney.nii.gz: t2star_kidney
@@ -17,7 +17,7 @@ Processing:
         r2star_liver.nii.gz: r2star_liver
       rois:
         seg_pancreas_t1w.nii.gz: seg_pancreas_t1w
-        seg_liver_ideal.nii.gz: seg_liver_ideal
+        seg_liver_gradecho.nii.gz: seg_liver_gradecho
         seg_kidney_left_dixon.nii.gz: seg_kidney_left_dixon
         seg_kidney_right_dixon.nii.gz: seg_kidney_right_dixon
         seg_liver_dixon.nii.gz: seg_liver_dixon
@@ -26,40 +26,40 @@ Processing:
   - Resample:
       data: seg_pancreas_t1w
       type: data
-      grid: multiecho_pancreas
+      grid: gradecho_pancreas
       order: 0
       output-name: seg_pancreas_res
 
   - Resample:
       data: seg_liver_dixon
       type: data
-      grid: ideal_liver
+      grid: gradecho_liver
       order: 0
       output-name: seg_liver_res
 
   - Resample:
       data: seg_spleen_dixon
       type: data
-      grid: ideal_liver
+      grid: gradecho_liver
       order: 0
       output-name: seg_spleen_res
 
   - DataStatistics:
-      data: [t2star_pancreas, r2star_pancreas, shmolli_pancreas]
+      data: [t2star_pancreas, r2star_pancreas, t1_pancreas]
       roi: seg_pancreas_t1w
       stats: all
       exact-median: True
       output-name: pancreas_stats
 
   - DataStatistics:
-      data: [t2star_liver, r2star_liver, shmolli_liver, t2star_kidney, r2star_kidney, shmolli_kidney]
+      data: [t2star_liver, r2star_liver, t1_liver, t2star_kidney, r2star_kidney, t1_kidney]
       roi: seg_liver_dixon
       stats: all
       exact-median: True
       output-name: liver_stats
       
   - DataStatistics:
-      data: [t2star_liver, r2star_liver, shmolli_liver, t2star_kidney, r2star_kidney, shmolli_kidney]
+      data: [t2star_liver, r2star_liver, t1_liver, t2star_kidney, r2star_kidney, t1_kidney]
       roi: seg_spleen_dixon
       stats: all
       exact-median: True

@@ -3,7 +3,7 @@
 #SBATCH --qos=img
 #SBATCH --ntasks=1
 #SBATCH --mem=16g
-#SBATCH --time=02:00:00
+#SBATCH --time=01:00:00
 #SBATCH --array=1-597
 #SBATCH --job-name=ukbbseg
 
@@ -121,17 +121,17 @@ if [ -z $DEMISTIFI_SKIP_STATS ]; then
   rm -rf "$QP_DATA_DIR"
   mkdir -p "$QP_DATA_DIR"
   ln -s "$SEG_OUTDIR/pancreas_t1w_sseg/${SUBJECT_ID}.nii.gz" "$QP_DATA_DIR/seg_pancreas_t1w.nii.gz"
-  ln -s "$SEG_OUTDIR/ideal_liver_seg/${SUBJECT_ID}.nii.gz" "$QP_DATA_DIR/seg_liver_ideal.nii.gz"
+  ln -s "$SEG_OUTDIR/ideal_liver_seg/${SUBJECT_ID}.nii.gz" "$QP_DATA_DIR/seg_liver_gradecho.nii.gz"
   ln -s "$SEG_OUTDIR/knee_to_neck_dixon_seg/otsu_prob_argmax_liver.nii.gz" "$QP_DATA_DIR/seg_liver_dixon.nii.gz"
   ln -s "$SEG_OUTDIR/knee_to_neck_dixon_seg/otsu_prob_argmax_kidney_right.nii.gz" "$QP_DATA_DIR/seg_kidney_right_dixon.nii.gz"
   ln -s "$SEG_OUTDIR/knee_to_neck_dixon_seg/otsu_prob_argmax_kidney_left.nii.gz" "$QP_DATA_DIR/seg_kidney_left_dixon.nii.gz"
   ln -s "$SEG_OUTDIR/knee_to_neck_dixon_seg/otsu_prob_argmax_spleen.nii.gz" "$QP_DATA_DIR/seg_spleen_dixon.nii.gz"
 
-  ln -s $TMP_NIFTI_DIR/*_ShMOLLI_*LIVER_T1MAP.nii.gz "$QP_DATA_DIR/shmolli_liver.nii.gz"
-  ln -s $TMP_NIFTI_DIR/*_ShMOLLI_*pancreas_T1MAP.nii.gz "$QP_DATA_DIR/shmolli_pancreas.nii.gz"
-  ln -s $TMP_NIFTI_DIR/*_ShMOLLI_*KIDNEY_T1MAP.nii.gz "$QP_DATA_DIR/shmolli_kidney.nii.gz"
-  ln -s "$NIFTI_DIR/multiecho_pancreas_magnitude.nii.gz" "$QP_DATA_DIR/multiecho_pancreas.nii.gz"
-  ln -s "$NIFTI_DIR/ideal_liver_magnitude.nii.gz" "$QP_DATA_DIR/ideal_liver.nii.gz"
+  ln -s $TMP_NIFTI_DIR/*_ShMOLLI_*LIVER_T1MAP.nii.gz "$QP_DATA_DIR/t1_liver.nii.gz"
+  ln -s $TMP_NIFTI_DIR/*_ShMOLLI_*pancreas_T1MAP.nii.gz "$QP_DATA_DIR/t1_pancreas.nii.gz"
+  ln -s $TMP_NIFTI_DIR/*_ShMOLLI_*KIDNEY_T1MAP.nii.gz "$QP_DATA_DIR/t1_kidney.nii.gz"
+  ln -s "$NIFTI_DIR/multiecho_pancreas_magnitude.nii.gz" "$QP_DATA_DIR/gradecho_pancreas.nii.gz"
+  ln -s "$NIFTI_DIR/ideal_liver_magnitude.nii.gz" "$QP_DATA_DIR/gradecho_liver.nii.gz"
   ln -s $RENAL_OUTDIR/*_gre_*_pancreas*/t2star_out/*_loglin_t2star_map.nii.gz "$QP_DATA_DIR/t2star_pancreas.nii.gz"
   ln -s $RENAL_OUTDIR/*_gre_*_pancreas*/t2star_out/*_loglin_r2star_map.nii.gz "$QP_DATA_DIR/r2star_pancreas.nii.gz"
   ln -s $RENAL_OUTDIR/*_gre_*_kidney*/t2star_out/*_loglin_t2star_map.nii.gz "$QP_DATA_DIR/t2star_kidney.nii.gz"
