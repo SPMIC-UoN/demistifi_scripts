@@ -12,7 +12,7 @@ class ArgumentParser(argparse.ArgumentParser):
         self.add_argument("--input", required=True, help="Input directory containing subject dirs")
         self.add_argument("--output", required=True, help="Output directory")
         self.add_argument("--subjids", required=True, help="File containing subject IDs to process")
-        self.add_argument("--subjid-idx", help="Index of individual subject ID to process. If not specified, process all")
+        self.add_argument("--subjid-idx", type=int, help="Index of individual subject ID to process. If not specified, process all")
         
         self.add_argument("--skip-preproc", action='store_true', default=False, help="Skip r_coh preprocessing step")
         self.add_argument("--skip-seg", action='store_true', default=False, help="Skip segmentation steps")
@@ -75,7 +75,7 @@ def main():
                 "{subj_indir}" \
                 "{preproc_basedir}" \
                 --biobank-project=None \
-                2>&1 >"{subj_outdir}/logfile.txt"')
+                >"{subj_outdir}/logfile.txt" 2>&1')
             subjid_preproc, preproc_outdir = get_preproc_subjid(preproc_basedir)
             os.rename(f"{subj_outdir}/logfile.txt", f"{preproc_outdir}/preproc_logfile.txt")
             print(f"DONE preprocessing for subject {subjid}")
@@ -88,7 +88,7 @@ def main():
                 --outdir "{preproc_outdir}/renal" \
                 --t2star-matcher=_gre_ --t2star-method=loglin \
                 --overwrite \
-                2>&1 >"{preproc_outdir}/renal_logfile.txt"')
+                >"{preproc_outdir}/renal_logfile.txt" 2>&1')
             print(f"DONE renal preprocessing for subject {subjid}")
         else:
             subjid_preproc, preproc_outdir = get_preproc_subjid(preproc_basedir)
@@ -115,7 +115,7 @@ def main():
                 --outphase={nifti_dir}/op.nii.gz \
                 --mask={nifti_dir}/mask.nii.gz \
                 --restore_string="{knee_to_neck_model}" \
-                2>&1 >"{seg_outdir}/dixon_logfile.txt"')
+                >"{seg_outdir}/dixon_logfile.txt" 2>&1')
             print(f"DONE DIXON segmentation for subject {subjid}")
 
             print(f"Doing pancreas T1w segmentation for subject {subjid}")
@@ -126,7 +126,7 @@ def main():
                 --IDS_FILE={subj_outdir}/subjid.txt \
                 --model_h5_path={pancreas_model} \
                 --input_nifti_subject_dir={preproc_basedir} \
-                2>&1 >"{seg_outdir}/pancreas_t1_logfile.txt"')
+                >"{seg_outdir}/pancreas_t1_logfile.txt" 2>&1')
             print(f"DONE pancreas T1w segmentation for subject {subjid}")
 
             print(f"Doing liver IDEAL segmentation for subject {subjid}")
@@ -137,7 +137,7 @@ def main():
                 --IDS_FILE={subj_outdir}/subjid.txt \
                 --model_h5_path={liver_ideal_model} \
                 --input_nifti_subject_dir={preproc_basedir} \
-                2>&1 >"{seg_outdir}/liver_ideal_logfile.txt"')
+                >"{seg_outdir}/liver_ideal_logfile.txt" 2>&1')
             print(f"DONE liver IDEAL segmentation for subject {subjid}")
 
         if not options.skip_stats:
@@ -180,7 +180,7 @@ def main():
                         of.write(line.replace("SUBJID", subjid))
             run(f'quantiphyse \
                 --batch={qp_data_dir}/resample_and_stats.qp \
-                2>&1 >"{qp_data_dir}/qp_logfile.txt"')
+                >"{qp_data_dir}/qp_logfile.txt" 2>&1')
             print(f"DONE Extracting ROI stats for subject {subjid}")
 
         print(f"DONE running subject {subjid}")
