@@ -5,13 +5,8 @@ import argparse
 import glob
 import os
 import shutil
-import sys
 
 class ArgumentParser(argparse.ArgumentParser):
-    """
-    ArgumentParser for program options
-    """
-
     def __init__(self, **kwargs):
         argparse.ArgumentParser.__init__(self, prog="demistifi-ukb-pipeline", add_help=True, **kwargs)
         self.add_argument("--input", required=True, help="Input directory containing subject dirs")
@@ -36,6 +31,28 @@ def link(srcdir, srcfile, destdir, destfile):
     else:
         os.symlink(srcfiles[0], os.path.join(destdir, f"{destfile}.nii.gz"))
 
+def get_preproc_subjid(preproc_basedir):
+    """
+    Get the subject ID which is only visible after preprocessing
+
+    :return: tuple of subject ID, full preproc dir path
+    """
+    preproc_files = os.listdir(preproc_basedir)
+    if not preproc_files:
+        raise RuntimeError(f"No preprocessing files found in {preproc_basedir}")
+    elif len(preproc_files) > 1:
+        raise RuntimeError(f"Multiple preprocessing files found in {preproc_basedir} - cannot identify subject ID")
+    else:
+        return preproc_files[0], os.path.join(preproc_basedir, preproc_files[0])
+
+def run(cmd):
+    """
+    Run a command and raise exception if it fails
+    """
+    retval = os.system(cmd)
+    if retval != 0:
+        raise RuntimeError(f"ERROR: command\n{cmd}\nreturned non-zero exit state {retval}")
+
 def main():
     options = ArgumentParser().parse_args()
     with open(options.subjids, "r") as f:
@@ -50,41 +67,44 @@ def main():
         print(f"Running subject {subjid}")
         subj_outdir = os.path.join(options.output, subjid)
         
-        preproc_outdir = os.path.join(subj_outdir, "preproc")
+        preproc_basedir = os.path.join(subj_outdir, "preproc")
         if not options.skip_preproc:
             print(f"Doing r-coh preprocessing for subject {subjid}")
-            os.makedirs(preproc_outdir, exist_ok=True)
-            os.system(f'r-coh.py process "{subj_indir}" "{preproc_outdir}" --biobank-project=None 2>&1 >"{subj_outdir}/logfile.txt"')
-            subjid_preproc = os.listdir(preproc_outdir)[0]
-            os.rename(f"{subj_outdir}/logfile.txt", f"{preproc_outdir}/{subjid_preproc}/logfile.txt")
+            os.makedirs(preproc_basedir, exist_ok=True)
+            run(f'r-coh.py process \
+                "{subj_indir}" \
+                "{preproc_basedir}" \
+                --biobank-project=None \
+                2>&1 >"{subj_outdir}/logfile.txt"')
+            subjid_preproc, preproc_outdir = get_preproc_subjid(preproc_basedir)
+            os.rename(f"{subj_outdir}/logfile.txt", f"{preproc_outdir}/preproc_logfile.txt")
             print(f"DONE preprocessing for subject {subjid}")
         
             print(f"Doing renal preprocessing for subject {subjid}")
-            renal_outdir = os.path.join(preproc_outdir, subjid_preproc, "renal")
+            renal_outdir = os.path.join(preproc_basedir, subjid_preproc, "renal")
             os.makedirs(renal_outdir, exist_ok=True)
-            os.system(f'renal-preproc \
-                --indir "{preproc_outdir}/{subjid_preproc}/tmp/dicom_series/" \
-                --outdir "{preproc_outdir}/{subjid_preproc}/renal" \
+            run(f'renal-preproc \
+                --indir "{preproc_outdir}/tmp/dicom_series/" \
+                --outdir "{preproc_outdir}/renal" \
                 --t2star-matcher=_gre_ --t2star-method=loglin \
                 --overwrite \
-                2>"{preproc_outdir}/{subjid_preproc}/renal/err.txt" \
-                >"{preproc_outdir}/{subjid_preproc}/renal/logfile.txt"')
+                2>&1 >"{preproc_outdir}/renal_logfile.txt"')
             print(f"DONE renal preprocessing for subject {subjid}")
         else:
-            subjid_preproc = os.listdir(preproc_outdir)[0]
-            renal_outdir = os.path.join(preproc_outdir, subjid_preproc, "renal")
+            subjid_preproc, preproc_outdir = get_preproc_subjid(preproc_basedir)
+            renal_outdir = os.path.join(preproc_outdir, "renal")
 
         with open(os.path.join(subj_outdir, "subjid.txt"), "w") as f:
             f.write(f"{subjid_preproc}\n")
           
-        nifti_dir = os.path.join(preproc_outdir, subjid_preproc, "nifti")
-        tmp_nifti_dir = os.path.join(preproc_outdir, subjid_preproc, "tmp", "nifti_series")
+        nifti_dir = os.path.join(preproc_outdir, "nifti")
+        tmp_nifti_dir = os.path.join(preproc_outdir, "tmp", "nifti_series")
 
         seg_outdir = os.path.join(subj_outdir, "seg")
         if not options.skip_seg:
             print(f"Doing DIXON segmentation for subject {subjid}")
             knee_to_neck_model = os.path.join(options.seg_models_dir, "knee_to_neck_dixon/20200401-mpgp118-best_xe/model.ckpt-20000")
-            os.system(f'infer_knee_to_neck_dixon \
+            run(f'infer_knee_to_neck_dixon \
                 --output_folder="{seg_outdir}" \
                 --reference_header_nifti="{nifti_dir}/mask.nii.gz" \
                 --save_what=prob \
@@ -94,27 +114,30 @@ def main():
                 --inphase={nifti_dir}/ip.nii.gz \
                 --outphase={nifti_dir}/op.nii.gz \
                 --mask={nifti_dir}/mask.nii.gz \
-                --restore_string="{knee_to_neck_model}"')
+                --restore_string="{knee_to_neck_model}" \
+                2>&1 >"{seg_outdir}/dixon_logfile.txt"')
             print(f"DONE DIXON segmentation for subject {subjid}")
 
             print(f"Doing pancreas T1w segmentation for subject {subjid}")
             os.makedirs(seg_outdir, exist_ok=True)
             pancreas_model = os.path.join(options.seg_models_dir, "pancreas_t1w/20200104_shape-rep-a-dice2-ep50.h5")
-            os.system(f'infer_pancreas_t1w --action=infer \
+            run(f'infer_pancreas_t1w --action=infer \
                 --output_folder={seg_outdir} \
                 --IDS_FILE={subj_outdir}/subjid.txt \
                 --model_h5_path={pancreas_model} \
-                --input_nifti_subject_dir={preproc_outdir}')
+                --input_nifti_subject_dir={preproc_basedir} \
+                2>&1 >"{seg_outdir}/pancreas_t1_logfile.txt"')
             print(f"DONE pancreas T1w segmentation for subject {subjid}")
 
             print(f"Doing liver IDEAL segmentation for subject {subjid}")
             liver_ideal_model = os.path.join(options.seg_models_dir, "liver_ideal/20191002_withphase_low_liver_2d_ideal.h5")
-            os.system(f'infer_liver_ideal_multiecho --action=infer \
+            run(f'infer_liver_ideal_multiecho --action=infer \
                 --output_folder={seg_outdir} \
                 --data_modality=ideal_liver \
                 --IDS_FILE={subj_outdir}/subjid.txt \
                 --model_h5_path={liver_ideal_model} \
-                --input_nifti_subject_dir={preproc_outdir}')
+                --input_nifti_subject_dir={preproc_basedir} \
+                2>&1 >"{seg_outdir}/liver_ideal_logfile.txt"')
             print(f"DONE liver IDEAL segmentation for subject {subjid}")
 
         if not options.skip_stats:
@@ -155,7 +178,9 @@ def main():
                 with open(subj_qp_script, "w") as of:
                     for line in f.readlines():
                         of.write(line.replace("SUBJID", subjid))
-            os.system(f'quantiphyse --batch={qp_data_dir}/resample_and_stats.qp')
+            run(f'quantiphyse \
+                --batch={qp_data_dir}/resample_and_stats.qp \
+                2>&1 >"{qp_data_dir}/qp_logfile.txt"')
             print(f"DONE Extracting ROI stats for subject {subjid}")
 
         print(f"DONE running subject {subjid}")
