@@ -9,9 +9,9 @@ import pandas as pd
 BODY_SEG_DIR = "/share/ukbiobank/body_seg"
 
 data_ids = {
-    "pancreas_molli" : "shmolli_pancreas",
-    "kidney_molli" : "shmolli_liver",
-    "liver_molli" : "shmolli_liver",
+    "pancreas_t1" : "t1_pancreas",
+    "kidney_t1" : "t1_liver",
+    "liver_t1" : "t1_liver",
     "pancreas_t2star" : "t2star_pancreas",
     "kidney_t2star" :  "t2star_kidney",
     "liver_t2star" : "t2star_liver", 
@@ -19,8 +19,8 @@ data_ids = {
     "seg_liver" : "seg_liver_dixon",
     "seg_kidney" : "seg_kidney_left_dixon",
     "seg_spleen" : "seg_spleen_dixon",
-    "liver_ideal" : "ideal_liver",
-    #"pancreas_vibe" : "",
+    "liver_ge" : "gradecho_liver",
+    "pancreas_ge" : "gradecho_pancreas",
 }
 
 subjrows = []
