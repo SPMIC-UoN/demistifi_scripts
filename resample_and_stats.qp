@@ -1,80 +1,155 @@
-OutputFolder: /share/ukbiobank/body_seg/stats/
+OutputFolder: OUTDIR/stats
 Debug: False
 
 Processing:
   - Load:
       data:
-        gradecho_pancreas.nii.gz: gradecho_pancreas
-        gradecho_liver.nii.gz: gradecho_liver
-        t1_pancreas.nii.gz: t1_pancreas
-        t1_kidney.nii.gz: t1_kidney
-        t1_liver.nii.gz: t1_liver
-        t2star_pancreas.nii.gz: t2star_pancreas
-        r2star_pancreas.nii.gz: r2star_pancreas
-        t2star_kidney.nii.gz: t2star_kidney
-        r2star_kidney.nii.gz: r2star_kidney
-        t2star_liver.nii.gz: t2star_liver
-        r2star_liver.nii.gz: r2star_liver
+        #gradecho_pancreas.nii.gz:
+        #gradecho_liver.nii.gz:
+        t1_pancreas.nii.gz:
+        t1_kidney.nii.gz:
+        t1_liver.nii.gz:
+        t2star_pancreas_loglin.nii.gz:
+        r2star_pancreas_loglin.nii.gz:
+        t2star_kidney_loglin.nii.gz:
+        r2star_kidney_loglin.nii.gz:
+        t2star_liver_loglin.nii.gz:
+        r2star_liver_loglin.nii.gz:
+        t2star_pancreas_presco.nii.gz:
+        r2star_pancreas_presco.nii.gz:
+        iron_pancreas_presco.nii.gz:
+        pdff_pancreas_presco.nii.gz:
+        t2star_liver_presco.nii.gz:
+        r2star_liver_presco.nii.gz:
+        iron_liver_presco.nii.gz:
+        pdff_liver_presco.nii.gz:
+        t2star_kidney_presco.nii.gz:
+        r2star_kidney_presco.nii.gz:
+        iron_kidney_presco.nii.gz:
+        pdff_kidney_presco.nii.gz:
       rois:
-        seg_pancreas_t1w.nii.gz: seg_pancreas_t1w
-        seg_liver_gradecho.nii.gz: seg_liver_gradecho
-        seg_kidney_left_dixon.nii.gz: seg_kidney_left_dixon
-        seg_kidney_right_dixon.nii.gz: seg_kidney_right_dixon
-        seg_liver_dixon.nii.gz: seg_liver_dixon
-        seg_spleen_dixon.nii.gz: seg_spleen_dixon
+        seg_pancreas_t1w.nii.gz:
+        seg_liver_ideal.nii.gz:
+        seg_kidney_left_dixon.nii.gz:
+        seg_kidney_right_dixon.nii.gz:
+        seg_liver_dixon.nii.gz:
+        seg_spleen_dixon.nii.gz:
+        seg_lungs_dixon.nii.gz:
+        seg_body_cavity_dixon.nii.gz:
+        seg_abdominal_cavity_dixon.nii.gz:
 
-  - Resample:
-      data: seg_pancreas_t1w
-      type: data
-      grid: gradecho_pancreas
-      order: 0
-      output-name: seg_pancreas_res
+  - Exec: 
+      grid: seg_body_cavity_dixon
+      output-is-roi: True
+      seg_subcutaneous_fat_dixon: np.max(seg_body_cavity_dixon - seg_abdominal_cavity_dixon, 0)
 
-  - Resample:
-      data: seg_liver_dixon
-      type: data
-      grid: gradecho_liver
-      order: 0
-      output-name: seg_liver_res
+  - CalcVolumes:
+      rois:
+       - seg_subcutaneous_fat_dixon
+       - seg_lungs_dixon
+       - seg_liver_dixon
+       - seg_spleen_dixon
+       - seg_kidney_right_dixon
+       - seg_kidney_left_dixon
+       - seg_body_cavity_dixon
+       - seg_pancreas_t1w
+      output-name: seg_volumes
 
-  - Resample:
-      data: seg_spleen_dixon
-      type: data
-      grid: gradecho_liver
-      order: 0
-      output-name: seg_spleen_res
+  #- Resample:
+  #    data: seg_pancreas_t1w
+  #    type: data
+  #    grid: gradecho_pancreas
+  #    order: 0
+  #    output-name: seg_pancreas_res
+
+  #- Resample:
+  #    data: seg_liver_dixon
+  #    type: data
+  #    grid: gradecho_liver
+  #    order: 0
+  #    output-name: seg_liver_res
+
+  #- Resample:
+  #    data: seg_spleen_dixon
+  #    type: data
+  #    grid: gradecho_liver
+  #    order: 0
+  #    output-name: seg_spleen_res
 
   - DataStatistics:
-      data: [t2star_pancreas, r2star_pancreas, t1_pancreas]
       roi: seg_pancreas_t1w
+      data:
+       - t2star_pancreas_presco
+       - r2star_pancreas_presco
+       - iron_pancreas_presco
+       - pdff_pancreas_presco
+       - t1_pancreas
       stats: all
       exact-median: True
-      output-name: pancreas_stats
+      output-name: pancreas_t1w_stats
 
   - DataStatistics:
-      data: [t2star_liver, r2star_liver, t1_liver, t2star_kidney, r2star_kidney, t1_kidney]
       roi: seg_liver_dixon
+      data: 
+       - t1_liver
+       - t2star_kidney_loglin
+       - r2star_kidney_loglin
+       - t2star_kidney_presco
+       - r2star_kidney_presco
+       - iron_kidney_presco
+       - pdff_kidney_presco
+       - t2star_pancreas_presco
+       - r2star_pancreas_presco
+       - iron_pancreas_presco
+       - pdff_pancreas_presco
       stats: all
       exact-median: True
-      output-name: liver_stats
+      output-name: liver_dixon_stats
       
   - DataStatistics:
-      data: [t2star_liver, r2star_liver, t1_liver, t2star_kidney, r2star_kidney, t1_kidney]
-      roi: seg_spleen_dixon
+      roi: seg_liver_ideal
+      data: 
+       - t2star_liver_presco
+       - r2star_liver_presco
+       - iron_liver_presco
+       - pdff_liver_presco
       stats: all
       exact-median: True
-      output-name: spleen_stats
+      output-name: liver_ideal_stats
       
-  - Save:
-      seg_pancreas_res:
-      seg_liver_res:
-      seg_spleen_res:
+  - DataStatistics:
+      roi: seg_spleen_dixon
+      data: 
+       - t1_kidney
+       - t2star_kidney_loglin
+       - r2star_kidney_loglin
+       - t2star_kidney_presco
+       - r2star_kidney_presco
+       - iron_kidney_presco
+       - pdff_kidney_presco
+       - t1_liver
+       - t2star_liver_loglin
+       - r2star_liver_loglin
+       - t2star_liver_presco
+       - r2star_liver_presco
+       - iron_liver_presco
+       - pdff_liver_presco
+      stats: all
+      exact-median: True
+      output-name: spleen_dixon_stats
+      
+  #- Save:
+  #    seg_pancreas_res:
+  #    seg_liver_res:
+  #    seg_spleen_res:
 
   - SaveExtras:
-      pancreas_stats: pancreas_stats.tsv
-      liver_stats: liver_stats.tsv
-      spleen_stats: spleen_stats.tsv
+      pancreas_t1w_stats: pancreas_t1w_stats.tsv
+      liver_dixon_stats: liver_dixon_stats.tsv
+      liver_ideal_stats: liver_ideal_stats.tsv
+      spleen_dixon_stats: spleen_dixon_stats.tsv
+      seg_volumes: seg_volumes.tsv
 
 Cases:
   SUBJID:
-    Folder: /share/ukbiobank/body_seg/SUBJID/qpdata/
+    Folder: OUTDIR/SUBJID/qpdata/
