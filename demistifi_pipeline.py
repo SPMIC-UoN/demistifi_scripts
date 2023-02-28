@@ -5,6 +5,10 @@ import argparse
 import glob
 import os
 import shutil
+import sys
+import traceback
+
+import nibabel as nib
 
 class ArgumentParser(argparse.ArgumentParser):
     def __init__(self, **kwargs):
@@ -45,13 +49,28 @@ def get_preproc_subjid(preproc_basedir):
     else:
         return preproc_files[0], os.path.join(preproc_basedir, preproc_files[0])
 
+def r2star_to_t2star(indir):
+    """
+    Calculate T2* for any R2* maps found in indir
+    """
+    for f in glob.glob(os.path.join(indir, "*r2star*")):
+        try:
+            f_r2star = os.path.join(indir, f)
+            f_t2star = f_r2star.replace("r2star", "t2star")
+            nii_r2star = nib.load(f_r2star)
+            nii_t2star = nib.Nifti1Image(1.0/nii_r2star.get_fdata(), None, nii_r2star.header)
+            nii_t2star.to_filename(f_t2star)
+        except:
+            print(f"WARNING: Failed to calculate T2* for R2* file: {f_r2star}")
+            traceback.print_exc()
+
 def run(cmd):
     """
     Run a command and raise exception if it fails
     """
     retval = os.system(cmd)
     if retval != 0:
-        raise RuntimeError(f"ERROR: command\n{cmd}\nreturned non-zero exit state {retval}")
+        print(f"WARNING: command\n{cmd}\nreturned non-zero exit state {retval}")
 
 def main():
     options = ArgumentParser().parse_args()
@@ -78,6 +97,9 @@ def main():
                 >"{subj_outdir}/logfile.txt" 2>&1')
             subjid_preproc, preproc_outdir = get_preproc_subjid(preproc_basedir)
             os.rename(f"{subj_outdir}/logfile.txt", f"{preproc_outdir}/preproc_logfile.txt")
+        
+            r2star_to_t2star(os.path.join(preproc_outdir, "analysis"))
+
             print(f"DONE preprocessing for subject {subjid}")
         
             print(f"Doing renal preprocessing for subject {subjid}")
@@ -99,9 +121,11 @@ def main():
           
         nifti_dir = os.path.join(preproc_outdir, "nifti")
         tmp_nifti_dir = os.path.join(preproc_outdir, "tmp", "nifti_series")
+        analysis_dir = os.path.join(preproc_outdir, "analysis")
 
         seg_outdir = os.path.join(subj_outdir, "seg")
         if not options.skip_seg:
+            os.makedirs(seg_outdir, exist_ok=True)
             print(f"Doing DIXON segmentation for subject {subjid}")
             knee_to_neck_model = os.path.join(options.seg_models_dir, "knee_to_neck_dixon/20200401-mpgp118-best_xe/model.ckpt-20000")
             run(f'infer_knee_to_neck_dixon \
@@ -119,7 +143,6 @@ def main():
             print(f"DONE DIXON segmentation for subject {subjid}")
 
             print(f"Doing pancreas T1w segmentation for subject {subjid}")
-            os.makedirs(seg_outdir, exist_ok=True)
             pancreas_model = os.path.join(options.seg_models_dir, "pancreas_t1w/20200104_shape-rep-a-dice2-ep50.h5")
             run(f'infer_pancreas_t1w --action=infer \
                 --output_folder={seg_outdir} \
@@ -149,35 +172,54 @@ def main():
 
             # Segmentations
             link(seg_outdir, f"pancreas_t1w_sseg/{subjid_preproc}", qp_data_dir, "seg_pancreas_t1w")
-            link(seg_outdir, f"ideal_liver_seg/{subjid_preproc}", qp_data_dir, "seg_liver_gradecho")
+            link(seg_outdir, f"ideal_liver_seg/{subjid_preproc}", qp_data_dir, "seg_liver_ideal")
             link(seg_outdir, f"knee_to_neck_dixon_seg/otsu_prob_argmax_liver", qp_data_dir, "seg_liver_dixon")
             link(seg_outdir, f"knee_to_neck_dixon_seg/otsu_prob_argmax_kidney_right", qp_data_dir, "seg_kidney_right_dixon")
             link(seg_outdir, f"knee_to_neck_dixon_seg/otsu_prob_argmax_kidney_left", qp_data_dir, "seg_kidney_left_dixon")
             link(seg_outdir, f"knee_to_neck_dixon_seg/otsu_prob_argmax_spleen", qp_data_dir, "seg_spleen_dixon")
+            link(seg_outdir, f"knee_to_neck_dixon_seg/otsu_prob_argmax_lungs", qp_data_dir, "seg_lungs_dixon")
+            link(seg_outdir, f"knee_to_neck_dixon_seg/otsu_prob_argmax_body_cavity", qp_data_dir, "seg_body_cavity_dixon")
+            link(seg_outdir, f"knee_to_neck_dixon_seg/otsu_prob_argmax_abdominal_cavity", qp_data_dir, "seg_abdominal_cavity_dixon")
 
-            # Parameter maps
+            # Preproc outputs
+            link(analysis_dir, "multiecho.pancreas_presco_r2star", qp_data_dir, "t2star_pancreas_presco")
+            link(analysis_dir, "multiecho.kidney_presco_r2star", qp_data_dir, "t2star_kidney_presco")
+            link(analysis_dir, "ideal.liver_presco_r2star", qp_data_dir, "t2star_liver_presco")
+            link(analysis_dir, "multiecho.pancreas_presco_r2star", qp_data_dir, "r2star_pancreas_presco")
+            link(analysis_dir, "multiecho.kidney_presco_r2star", qp_data_dir, "r2star_kidney_presco")
+            link(analysis_dir, "ideal.liver_presco_r2star", qp_data_dir, "r2star_liver_presco")
+            link(analysis_dir, "multiecho.pancreas_presco_iron", qp_data_dir, "iron_pancreas_presco")
+            link(analysis_dir, "multiecho.kidney_presco_iron", qp_data_dir, "iron_kidney_presco")
+            link(analysis_dir, "ideal.liver_presco_iron", qp_data_dir, "iron_liver_presco")
+            link(analysis_dir, "multiecho.pancreas_presco_pdff", qp_data_dir, "pdff_pancreas_presco")
+            link(analysis_dir, "multiecho.kidney_presco_pdff", qp_data_dir, "pdff_kidney_presco")
+            link(analysis_dir, "ideal.liver_presco_pdff", qp_data_dir, "pdff_liver_presco")
             link(tmp_nifti_dir, "*_ShMOLLI_*LIVER_T1MAP", qp_data_dir, "t1_liver")
             link(tmp_nifti_dir, "*_ShMOLLI_*pancreas_T1MAP", qp_data_dir, "t1_pancreas")
             link(tmp_nifti_dir, "*_ShMOLLI_*KIDNEY_T1MAP", qp_data_dir, "t1_kidney")
-            link(nifti_dir, "multiecho_pancreas_magnitude", qp_data_dir, "gradecho_pancreas")
-            link(nifti_dir, "ideal_liver_magnitude", qp_data_dir, "gradecho_liver")
-            link(renal_outdir, "*_gre_*_pancreas*/t2star_out/*_loglin_t2star_map", qp_data_dir, "t2star_pancreas")
-            link(renal_outdir, "*_gre_*_pancreas*/t2star_out/*_loglin_r2star_map", qp_data_dir, "r2star_pancreas")
-            link(renal_outdir, "*_gre_*_kidney*/t2star_out/*_loglin_t2star_map", qp_data_dir, "t2star_kidney")
-            link(renal_outdir, "*_gre_*_kidney*/t2star_out/*_loglin_r2star_map", qp_data_dir, "r2star_kidney")
-            link(renal_outdir, "*_gre_*_liver*/t2star_out/*_loglin_t2star_map", qp_data_dir, "t2star_liver")
-            link(renal_outdir, "*_gre_*_liver*/t2star_out/*_loglin_r2star_map", qp_data_dir, "r2star_liver")
+
+            # Parameter maps
+            #link(nifti_dir, "multiecho_pancreas_magnitude", qp_data_dir, "multiecho_pancreas")
+            #link(nifti_dir, "ideal_liver_magnitude", qp_data_dir, "multiecho_liver")
+
+            # Renal preproc outputs
+            link(renal_outdir, "*_gre_*_pancreas*/t2star_out/*_loglin_t2star_map", qp_data_dir, "t2star_pancreas_loglin")
+            link(renal_outdir, "*_gre_*_pancreas*/t2star_out/*_loglin_r2star_map", qp_data_dir, "r2star_pancreas_loglin")
+            link(renal_outdir, "*_gre_*_kidney*/t2star_out/*_loglin_t2star_map", qp_data_dir, "t2star_kidney_loglin")
+            link(renal_outdir, "*_gre_*_kidney*/t2star_out/*_loglin_r2star_map", qp_data_dir, "r2star_kidney_loglin")
+            link(renal_outdir, "*_gre_*_liver*/t2star_out/*_loglin_t2star_map", qp_data_dir, "t2star_liver_loglin")
+            link(renal_outdir, "*_gre_*_liver*/t2star_out/*_loglin_r2star_map", qp_data_dir, "r2star_liver_loglin")
             print(f"DONE Linking segmentation and data sets for subject {subjid}")
 
             print(f"Extracting ROI stats for subject {subjid}")
-            qp_script = os.path.join(options.output, "resample_and_stats.qp")
+            qp_script = os.path.join(os.path.dirname(sys.argv[0]), "resample_and_stats.qp")
             subj_qp_script = os.path.join(qp_data_dir, "resample_and_stats.qp")
             if os.path.exists(subj_qp_script):
                 os.remove(subj_qp_script, exist_ok=True)
             with open(qp_script, "r") as f:
                 with open(subj_qp_script, "w") as of:
                     for line in f.readlines():
-                        of.write(line.replace("SUBJID", subjid))
+                        of.write(line.replace("SUBJID", subjid).replace("OUTDIR", options.output))
             run(f'quantiphyse \
                 --batch={qp_data_dir}/resample_and_stats.qp \
                 >"{qp_data_dir}/qp_logfile.txt" 2>&1')
