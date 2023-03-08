@@ -181,9 +181,9 @@ def main():
             link(seg_outdir, f"knee_to_neck_dixon_seg/otsu_prob_argmax_abdominal_cavity", qp_data_dir, "seg_abdominal_cavity_dixon")
 
             # Preproc outputs
-            link(analysis_dir, "multiecho.pancreas_presco_r2star", qp_data_dir, "t2star_pancreas_gre_presco")
-            link(analysis_dir, "multiecho.kidney_presco_r2star", qp_data_dir, "t2star_kidney_gre_presco")
-            link(analysis_dir, "ideal.liver_presco_r2star", qp_data_dir, "t2star_liver_ideal_presco")
+            link(analysis_dir, "multiecho.pancreas_presco_t2star", qp_data_dir, "t2star_pancreas_gre_presco")
+            link(analysis_dir, "multiecho.kidney_presco_t2star", qp_data_dir, "t2star_kidney_gre_presco")
+            link(analysis_dir, "ideal.liver_presco_t2star", qp_data_dir, "t2star_liver_ideal_presco")
             link(analysis_dir, "multiecho.pancreas_presco_r2star", qp_data_dir, "r2star_pancreas_gre_presco")
             link(analysis_dir, "multiecho.kidney_presco_r2star", qp_data_dir, "r2star_kidney_gre_presco")
             link(analysis_dir, "ideal.liver_presco_r2star", qp_data_dir, "r2star_liver_ideal_presco")
