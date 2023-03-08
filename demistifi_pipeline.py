@@ -16,8 +16,7 @@ class ArgumentParser(argparse.ArgumentParser):
         self.add_argument("--input", required=True, help="Input directory containing subject dirs")
         self.add_argument("--output", required=True, help="Output directory")
         self.add_argument("--subjids", required=True, help="File containing subject IDs to process")
-        self.add_argument("--subjid-idx", type=int, help="Index of individual subject ID to process. If not specified, process all")
-        
+        self.add_argument("--subjid-idx", type=int, help="Index of individual subject ID to process (starting at 1). If not specified, process all")        
         self.add_argument("--skip-preproc", action='store_true', default=False, help="Skip r_coh preprocessing step")
         self.add_argument("--skip-seg", action='store_true', default=False, help="Skip segmentation steps")
         self.add_argument("--skip-stats", action='store_true', default=False, help="Skip statistics generation")
@@ -77,7 +76,7 @@ def main():
     with open(options.subjids, "r") as f:
         subjids = [l.strip() for l in f.readlines()]
     if options.subjid_idx:
-        subjids = [subjids[options.subjid_idx]]
+        subjids = [subjids[options.subjid_idx-1]]
 
     for subjid in subjids:
         subj_basedir = os.path.join(options.input, subjid)
@@ -182,33 +181,33 @@ def main():
             link(seg_outdir, f"knee_to_neck_dixon_seg/otsu_prob_argmax_abdominal_cavity", qp_data_dir, "seg_abdominal_cavity_dixon")
 
             # Preproc outputs
-            link(analysis_dir, "multiecho.pancreas_presco_r2star", qp_data_dir, "t2star_pancreas_presco")
-            link(analysis_dir, "multiecho.kidney_presco_r2star", qp_data_dir, "t2star_kidney_presco")
-            link(analysis_dir, "ideal.liver_presco_r2star", qp_data_dir, "t2star_liver_presco")
-            link(analysis_dir, "multiecho.pancreas_presco_r2star", qp_data_dir, "r2star_pancreas_presco")
-            link(analysis_dir, "multiecho.kidney_presco_r2star", qp_data_dir, "r2star_kidney_presco")
-            link(analysis_dir, "ideal.liver_presco_r2star", qp_data_dir, "r2star_liver_presco")
-            link(analysis_dir, "multiecho.pancreas_presco_iron", qp_data_dir, "iron_pancreas_presco")
-            link(analysis_dir, "multiecho.kidney_presco_iron", qp_data_dir, "iron_kidney_presco")
-            link(analysis_dir, "ideal.liver_presco_iron", qp_data_dir, "iron_liver_presco")
-            link(analysis_dir, "multiecho.pancreas_presco_pdff", qp_data_dir, "pdff_pancreas_presco")
-            link(analysis_dir, "multiecho.kidney_presco_pdff", qp_data_dir, "pdff_kidney_presco")
-            link(analysis_dir, "ideal.liver_presco_pdff", qp_data_dir, "pdff_liver_presco")
-            link(tmp_nifti_dir, "*_ShMOLLI_*LIVER_T1MAP", qp_data_dir, "t1_liver")
-            link(tmp_nifti_dir, "*_ShMOLLI_*pancreas_T1MAP", qp_data_dir, "t1_pancreas")
-            link(tmp_nifti_dir, "*_ShMOLLI_*KIDNEY_T1MAP", qp_data_dir, "t1_kidney")
+            link(analysis_dir, "multiecho.pancreas_presco_r2star", qp_data_dir, "t2star_pancreas_gre_presco")
+            link(analysis_dir, "multiecho.kidney_presco_r2star", qp_data_dir, "t2star_kidney_gre_presco")
+            link(analysis_dir, "ideal.liver_presco_r2star", qp_data_dir, "t2star_liver_ideal_presco")
+            link(analysis_dir, "multiecho.pancreas_presco_r2star", qp_data_dir, "r2star_pancreas_gre_presco")
+            link(analysis_dir, "multiecho.kidney_presco_r2star", qp_data_dir, "r2star_kidney_gre_presco")
+            link(analysis_dir, "ideal.liver_presco_r2star", qp_data_dir, "r2star_liver_ideal_presco")
+            link(analysis_dir, "multiecho.pancreas_presco_iron", qp_data_dir, "iron_pancreas_gre_presco")
+            link(analysis_dir, "multiecho.kidney_presco_iron", qp_data_dir, "iron_kidney_gre_presco")
+            link(analysis_dir, "ideal.liver_presco_iron", qp_data_dir, "iron_liver_ideal_presco")
+            link(analysis_dir, "multiecho.pancreas_presco_pdff", qp_data_dir, "pdff_pancreas_gre_presco")
+            link(analysis_dir, "multiecho.kidney_presco_pdff", qp_data_dir, "pdff_kidney_gre_presco")
+            link(analysis_dir, "ideal.liver_presco_pdff", qp_data_dir, "pdff_liver_ideal_presco")
+            link(tmp_nifti_dir, "*_ShMOLLI_*LIVER_T1MAP", qp_data_dir, "t1_liver_molli")
+            link(tmp_nifti_dir, "*_ShMOLLI_*pancreas_T1MAP", qp_data_dir, "t1_pancreas_molli")
+            link(tmp_nifti_dir, "*_ShMOLLI_*kidney_T1MAP", qp_data_dir, "t1_kidney_molli")
 
             # Parameter maps
             #link(nifti_dir, "multiecho_pancreas_magnitude", qp_data_dir, "multiecho_pancreas")
             #link(nifti_dir, "ideal_liver_magnitude", qp_data_dir, "multiecho_liver")
 
             # Renal preproc outputs
-            link(renal_outdir, "*_gre_*_pancreas*/t2star_out/*_loglin_t2star_map", qp_data_dir, "t2star_pancreas_loglin")
-            link(renal_outdir, "*_gre_*_pancreas*/t2star_out/*_loglin_r2star_map", qp_data_dir, "r2star_pancreas_loglin")
-            link(renal_outdir, "*_gre_*_kidney*/t2star_out/*_loglin_t2star_map", qp_data_dir, "t2star_kidney_loglin")
-            link(renal_outdir, "*_gre_*_kidney*/t2star_out/*_loglin_r2star_map", qp_data_dir, "r2star_kidney_loglin")
-            link(renal_outdir, "*_gre_*_liver*/t2star_out/*_loglin_t2star_map", qp_data_dir, "t2star_liver_loglin")
-            link(renal_outdir, "*_gre_*_liver*/t2star_out/*_loglin_r2star_map", qp_data_dir, "r2star_liver_loglin")
+            link(renal_outdir, "*_gre_*_pancreas*/t2star_out/*_loglin_t2star_map", qp_data_dir, "t2star_pancreas_gre_loglin")
+            link(renal_outdir, "*_gre_*_pancreas*/t2star_out/*_loglin_r2star_map", qp_data_dir, "r2star_pancreas_gre_loglin")
+            link(renal_outdir, "*_gre_*_kidney*/t2star_out/*_loglin_t2star_map", qp_data_dir, "t2star_kidney_gre_loglin")
+            link(renal_outdir, "*_gre_*_kidney*/t2star_out/*_loglin_r2star_map", qp_data_dir, "r2star_kidney_gre_loglin")
+            link(renal_outdir, "*_gre_*_liver*/t2star_out/*_loglin_t2star_map", qp_data_dir, "t2star_liver_gre_loglin")
+            link(renal_outdir, "*_gre_*_liver*/t2star_out/*_loglin_r2star_map", qp_data_dir, "r2star_liver_gre_loglin")
             print(f"DONE Linking segmentation and data sets for subject {subjid}")
 
             print(f"Extracting ROI stats for subject {subjid}")
