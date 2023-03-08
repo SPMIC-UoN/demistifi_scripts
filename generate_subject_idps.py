@@ -103,7 +103,7 @@ def main():
     subjids = [f for f in os.listdir(options.input) if os.path.isdir(os.path.join(options.input, f))]
     
     out_idpcols, out_idplist = ["subjid",], []
-    organ_values, seg_values, grid_values = [""], [""], [""]
+    organ_values, seg_values, grid_values, param_values, measure_values = [""], [""], [""], [""], [""]
     for subj_idx, subjid in enumerate(subjids):
         subj_idpvals = [subjid,]
         loaded_stats = {}
@@ -121,9 +121,13 @@ def main():
                         output_col_name = f"{organ}_{seg}_{grid}"
                         out_idpcols.append(output_col_name + "_n")
                         out_idpcols.append(output_col_name + "_vol")
-                        organ_values.append(organ)
-                        seg_values.append(seg)
-                        grid_values.append(grid)
+                        measure_values.append("n")
+                        measure_values.append("vol")
+                        for i in range(2):
+                            organ_values.append(organ)
+                            seg_values.append(seg)
+                            grid_values.append(grid)
+                            param_values.append("mask")
                     subj_idpvals.append(n)
                     subj_idpvals.append(vol)
                     LOG.debug(f"N, volume: {n} {vol}")
@@ -140,27 +144,37 @@ def main():
                                 LOG.warning(f"No stats file: {stats_tsv}")
                                 loaded_stats[stats_dataset] = pd.DataFrame()
                         col_name = param
+                        param_name = param
                         if grid:
                             col_name += f"_{grid}"
                         else:
                             col_name += f"_{organ}_{seg}"
                         if method:
                             col_name += f"_{method}"
+                            param_name += f"_{method}"
                         if col_name in list(loaded_stats[stats_dataset].columns):
                             mean = loaded_stats[stats_dataset][col_name]["Mean"]
                             std = loaded_stats[stats_dataset][col_name]["Std"]
+                            median = loaded_stats[stats_dataset][col_name]["Median"]
                         else:
-                            mean, std = "", ""
+                            mean, std, median = "", "", ""
 
                         if subj_idx == 0:
                             output_col_name = f"{organ}_{seg}_{col_name}"
                             out_idpcols.append(output_col_name + "_mean")
                             out_idpcols.append(output_col_name + "_std")
-                            organ_values.append(organ)
-                            seg_values.append(seg)
-                            grid_values.append(grid)
+                            out_idpcols.append(output_col_name + "_median")
+                            measure_values.append("mean")
+                            measure_values.append("std")
+                            measure_values.append("median")
+                            for i in range(3):
+                                organ_values.append(organ)
+                                seg_values.append(seg)
+                                grid_values.append(grid)
+                                param_values.append(param_name)
                         subj_idpvals.append(mean)
                         subj_idpvals.append(std)
+                        subj_idpvals.append(median)
 
         out_idplist.append(subj_idpvals)
 
@@ -171,12 +185,15 @@ def main():
     organ_values = strip_repeats(organ_values)
     seg_values = strip_repeats(seg_values)
     grid_values = strip_repeats(grid_values)
+    param_values = strip_repeats(param_values)
     with open(options.output, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter=',', quotechar='"', quoting=csv.QUOTE_MINIMAL)
+        writer.writerow(out_idpcols)
         writer.writerow(organ_values)
         writer.writerow(seg_values)
         writer.writerow(grid_values)
-        writer.writerow(out_idpcols)
+        writer.writerow(param_values)
+        writer.writerow(measure_values)
         for subj_values in out_idplist:
             writer.writerow(subj_values)
             
