@@ -67,6 +67,45 @@ IDPDEF = {
             ],
         }
     },
+    "pancreas" : {
+        "t1w" : {
+            "pancreas_molli" : [
+                ("t1", "")
+            ],
+            "pancreas_gre" : [
+                ("t2star", "presco"),
+                ("r2star", "presco"),
+                ("t2star", "loglin"),
+                ("r2star", "loglin"),
+                ("iron", "presco"),
+                ("pdff", "presco"),
+            ],
+        }
+    },
+    "spleen" : {
+        "dixon" : {
+            "liver_molli" :  [
+                ("t1", "")
+            ],
+            "liver_ideal" : [
+                ("t2star", "presco"),
+                ("r2star", "presco"),
+                ("iron", "presco"),
+                ("pdff", "presco"),
+            ],
+            "kidney_molli" : [
+                ("t1", "")
+            ],
+            "kidney_gre" : [
+                ("t2star", "presco"),
+                ("r2star", "presco"),
+                ("t2star", "loglin"),
+                ("r2star", "loglin"),
+                ("iron", "presco"),
+                ("pdff", "presco"),
+            ]
+        }
+    }
 }
 
 def get_seg_vols(options, subjid):
