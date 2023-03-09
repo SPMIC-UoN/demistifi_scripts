@@ -57,11 +57,23 @@ def r2star_to_t2star(indir):
             f_r2star = os.path.join(indir, f)
             f_t2star = f_r2star.replace("r2star", "t2star")
             nii_r2star = nib.load(f_r2star)
-            nii_t2star = nib.Nifti1Image(1.0/nii_r2star.get_fdata(), None, nii_r2star.header)
+            nii_t2star = nib.Nifti1Image(1000.0/nii_r2star.get_fdata(), None, nii_r2star.header)
             nii_t2star.to_filename(f_t2star)
         except:
             print(f"WARNING: Failed to calculate T2* for R2* file: {f_r2star}")
             traceback.print_exc()
+
+def correct_r2star_units(indir):
+    """
+    Convert R2* output from ms^-1 to s^-1
+    """
+    for root, dirs, files in os.walk(indir):
+        for f in files:
+            if "r2star" in f:
+                fname = os.path.join(root, f)
+                nii_r2star = nib.load(fname)
+                nii_r2star = nib.Nifti1Image(1000.0 * nii_r2star.get_fdata(), None, nii_r2star.header)
+                nii_r2star.to_filename(fname)
 
 def run(cmd):
     """
@@ -110,6 +122,7 @@ def main():
                 --t2star-matcher=_gre_ --t2star-method=loglin \
                 --overwrite \
                 >"{preproc_outdir}/renal_logfile.txt" 2>&1')
+            correct_r2star_units(renal_outdir)
             print(f"DONE renal preprocessing for subject {subjid}")
         else:
             subjid_preproc, preproc_outdir = get_preproc_subjid(preproc_basedir)
