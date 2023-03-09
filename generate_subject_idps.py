@@ -142,8 +142,8 @@ def main():
     subjids = [f for f in os.listdir(options.input) if os.path.isdir(os.path.join(options.input, f))]
     
     out_idpcols, out_idplist = ["subjid",], []
-    organ_values, seg_values, grid_values, param_values, measure_values = [""], [""], [""], [""], [""]
-    for subj_idx, subjid in enumerate(subjids):
+    organ_values, seg_values, grid_values, param_values, measure_values = [""], [""], [""], [""], ["subjid"]
+    for subj_idx, subjid in enumerate(sorted(subjids)):
         subj_idpvals = [subjid,]
         loaded_stats = {}
         seg_vols_df = get_seg_vols(options, subjid)
