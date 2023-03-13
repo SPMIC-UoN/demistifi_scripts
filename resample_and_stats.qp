@@ -37,18 +37,13 @@ Processing:
         seg_lungs_dixon.nii.gz:
         seg_body_cavity_dixon.nii.gz:
         seg_abdominal_cavity_dixon.nii.gz:
+        seg_kidney_medulla_t1:
+        seg_kidney_cortex_t1:
 
   - Exec: 
       grid: seg_body_cavity_dixon
       output-is-roi: True
       seg_subcutaneous_fat_dixon: np.max(seg_body_cavity_dixon - seg_abdominal_cavity_dixon, 0)
-
-  #- Resample:
-  #    data: seg_pancreas_t1w
-  #    type: data
-  #    grid: gradecho_pancreas
-  #    order: 0
-  #    output-name: seg_pancreas_res
 
   - Resample:
       data: seg_liver_dixon
@@ -71,12 +66,40 @@ Processing:
       order: 0
       output-name: seg_liver_dixon_regrid_kidney_gre
 
-  #- Resample:
-  #    data: seg_spleen_dixon
-  #    type: data
-  #    grid: gradecho_liver
-  #    order: 0
-  #    output-name: seg_spleen_res
+  - Resample:
+      data: seg_pancreas_t1w
+      type: data
+      grid: t2star_pancreas_gre_presco
+      order: 0
+      output-name: seg_pancreas_t1w_regrid_pancreas_gre
+
+  - Resample:
+      data: seg_spleen_dixon
+      type: data
+      grid: t1_liver_molli
+      order: 0
+      output-name: seg_spleen_dixon_regrid_liver_molli
+
+  - Resample:
+      data: seg_spleen_dixon
+      type: data
+      grid: t2star_liver_ideal_presco
+      order: 0
+      output-name: seg_spleen_dixon_regrid_liver_ideal
+
+  - Resample:
+      data: seg_spleen_dixon
+      type: data
+      grid: t1_kidney_molli
+      order: 0
+      output-name: seg_spleen_dixon_regrid_kidney_molli
+
+  - Resample:
+      data: seg_spleen_dixon
+      type: data
+      grid: t2star_kidney_gre_presco
+      order: 0
+      output-name: seg_spleen_dixon_regrid_kidney_gre
 
   - CalcVolumes:
       rois:
@@ -93,6 +116,14 @@ Processing:
        - seg_liver_dixon_regrid_liver_molli
        - seg_liver_dixon_regrid_pancreas_gre
        - seg_liver_dixon_regrid_kidney_gre
+       - seg_pancreas_t1w_regrid_pancreas_gre
+       - seg_spleen_dixon_regrid_liver_molli
+       - seg_spleen_dixon_regrid_liver_ideal
+       - seg_spleen_dixon_regrid_kidney_gre
+       - seg_spleen_dixon_regrid_kidney_molli
+       - seg_kidney_medulla_t1
+       - seg_kidney_cortex_t1
+      units: ml
       output-name: seg_volumes
 
   - DataStatistics:
@@ -105,6 +136,12 @@ Processing:
        - r2star_pancreas_gre_presco
        - iron_pancreas_gre_presco
        - pdff_pancreas_gre_presco
+      data-limits:
+        t1_pancreas_molli : [400, 1350]
+        t2star_pancreas_gre_loglin : [2, 100]
+        t2star_pancreas_gre_presco : [2, 100]
+        r2star_pancreas_gre_loglin : [10, 500]
+        r2star_pancreas_gre_presco : [10, 500]
       stats: all
       exact-median: True
       output-name: pancreas_t1w_stats
@@ -125,6 +162,16 @@ Processing:
        - r2star_pancreas_gre_presco
        - iron_pancreas_gre_presco
        - pdff_pancreas_gre_presco
+      data-limits:
+        t1_liver_molli : [400, 1350]
+        t2star_kidney_gre_loglin : [2, 70]
+        t2star_kidney_gre_presco : [2, 70]
+        t2star_pancreas_gre_loglin : [2, 70]
+        t2star_pancreas_gre_presco : [2, 70]
+        r2star_kidney_gre_loglin : [14, 500]
+        r2star_kidney_gre_presco : [14, 500]
+        r2star_pancreas_gre_loglin : [14, 500]
+        r2star_pancreas_gre_presco : [14, 500]
       stats: all
       exact-median: True
       output-name: liver_dixon_stats
@@ -136,6 +183,9 @@ Processing:
        - r2star_liver_ideal_presco
        - iron_liver_ideal_presco
        - pdff_liver_ideal_presco
+      data-limits:
+        t2star_liver_ideal_presco : [2, 70]
+        r2star_liver_ideal_presco : [14, 500]
       stats: all
       exact-median: True
       output-name: liver_ideal_stats
@@ -157,20 +207,77 @@ Processing:
        - r2star_liver_ideal_presco
        - iron_liver_ideal_presco
        - pdff_liver_ideal_presco
+      data-limits:
+        t1_kidney_molli : [800, 1350]
+        t2star_kidney_gre_loglin : [2, 150]
+        t2star_kidney_gre_presco : [2, 150]
+        t2star_liver_ideal_loglin : [2, 150]
+        t2star_liver_ideal_presco : [2, 150]
+        r2star_kidney_gre_loglin : [6, 500]
+        r2star_kidney_gre_presco : [6, 500]
+        r2star_liver_ideal_loglin : [6, 500]
+        r2star_liver_ideal_presco : [6, 500]
       stats: all
       exact-median: True
       output-name: spleen_dixon_stats
       
+  - DataStatistics:
+      roi: seg_kidney_medulla_t1
+      data: 
+       - t1_kidney_molli
+       - t2star_kidney_gre_loglin
+       - r2star_kidney_gre_loglin
+       - t2star_kidney_gre_presco
+       - r2star_kidney_gre_presco
+       - iron_kidney_gre_presco
+       - pdff_kidney_gre_presco
+      data-limits:
+        t1_kidney_molli : [800, 1350]
+        t2star_kidney_gre_loglin : [2, 150]
+        t2star_kidney_gre_presco : [2, 150]
+        r2star_kidney_gre_loglin : [6, 500]
+        r2star_kidney_gre_presco : [6, 500]
+      stats: all
+      exact-median: True
+      output-name: kidney_medulla_stats
+
+  - DataStatistics:
+      roi: seg_kidney_cortex_t1
+      data: 
+       - t1_kidney_molli
+       - t2star_kidney_gre_loglin
+       - r2star_kidney_gre_loglin
+       - t2star_kidney_gre_presco
+       - r2star_kidney_gre_presco
+       - iron_kidney_gre_presco
+       - pdff_kidney_gre_presco
+      data-limits:
+        t1_kidney_molli : [800, 1350]
+        t2star_kidney_gre_loglin : [2, 150]
+        t2star_kidney_gre_presco : [2, 150]
+        r2star_kidney_gre_loglin : [6, 500]
+        r2star_kidney_gre_presco : [6, 500]
+      stats: all
+      exact-median: True
+      output-name: kidney_cortex_stats
+
   - Save:
       seg_liver_dixon_regrid_liver_molli:
       seg_liver_dixon_regrid_pancreas_gre:
       seg_liver_dixon_regrid_kidney_gre:
+      seg_pancreas_t1w_regrid_pancreas_gre:
+      seg_spleen_dixon_regrid_liver_molli:
+      seg_spleen_dixon_regrid_liver_ideal:
+      seg_spleen_dixon_regrid_kidney_gre:
+      seg_spleen_dixon_regrid_kidney_molli:
 
   - SaveExtras:
       pancreas_t1w_stats: pancreas_t1w_stats.tsv
       liver_dixon_stats: liver_dixon_stats.tsv
       liver_ideal_stats: liver_ideal_stats.tsv
       spleen_dixon_stats: spleen_dixon_stats.tsv
+      kidney_medulla_stats: kidney_medulla_stats.tsv
+      kidney_cortex_stats: kidney_cortex_stats.tsv
       seg_volumes: seg_volumes.tsv
 
 Cases:
