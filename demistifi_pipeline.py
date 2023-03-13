@@ -138,6 +138,19 @@ def main():
         seg_outdir = os.path.join(subj_outdir, "seg")
         if not options.skip_seg:
             os.makedirs(seg_outdir, exist_ok=True)
+            
+            print(f"Doing kidney T1 segmentation for subject {subjid}")
+            kidney_t1_model = os.path.join(options.seg_models_dir, "kidney_t1.pt")
+            run(f'kidney_t1_seg \
+                --input {options.output} \
+                --t1=preproc/{subjid_preproc}/tmp/nifti_series/*ShMOLLI*kidney_T1MAP.nii.gz \
+                --subjid={subjid} \
+                --model {kidney_t1_model} \
+                --output={options.output} \
+                --outprefix=seg/kidney_t1_seg/seg_kidney \
+                >"{seg_outdir}/kidney_t1_logfile.txt" 2>&1')
+            print(f"DONE kidney T1 segmentation for subject {subjid}")
+
             print(f"Doing DIXON segmentation for subject {subjid}")
             knee_to_neck_model = os.path.join(options.seg_models_dir, "knee_to_neck_dixon/20200401-mpgp118-best_xe/model.ckpt-20000")
             run(f'infer_knee_to_neck_dixon \
@@ -185,6 +198,8 @@ def main():
             # Segmentations
             link(seg_outdir, f"pancreas_t1w_sseg/{subjid_preproc}", qp_data_dir, "seg_pancreas_t1w")
             link(seg_outdir, f"ideal_liver_seg/{subjid_preproc}", qp_data_dir, "seg_liver_ideal")
+            link(seg_outdir, f"kidney_t1_seg/seg_kidney_medulla_t1", qp_data_dir, "seg_kidney_medulla_t1")
+            link(seg_outdir, f"kidney_t1_seg/seg_kidney_cortex_t1", qp_data_dir, "seg_kidney_cortex_t1")
             link(seg_outdir, f"knee_to_neck_dixon_seg/otsu_prob_argmax_liver", qp_data_dir, "seg_liver_dixon")
             link(seg_outdir, f"knee_to_neck_dixon_seg/otsu_prob_argmax_kidney_right", qp_data_dir, "seg_kidney_right_dixon")
             link(seg_outdir, f"knee_to_neck_dixon_seg/otsu_prob_argmax_kidney_left", qp_data_dir, "seg_kidney_left_dixon")
