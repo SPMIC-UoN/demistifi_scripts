@@ -5,10 +5,12 @@ import argparse
 import csv
 import logging
 import os
+import sys
 
 import pandas as pd
 
 LOG = logging.getLogger(__name__)
+logging.basicConfig(level=logging.DEBUG)
 
 class ArgumentParser(argparse.ArgumentParser):
     def __init__(self, **kwargs):
@@ -32,9 +34,12 @@ class ArgumentParser(argparse.ArgumentParser):
 # Parameter maps follow naming convention
 #    <variable>_<grid dataset>_[<method>] (e.g. t2star_pancreas_gre_presco)
 #
-# Note that <organ> is the TARGET of the scan the map was derived from (but
-# may include data for other organs as well). All parameter maps for a given target 
-# organ must be derived from the same scan and defined on the same grid
+# Note that parameters may be derived from maps targeting a particular
+# organ but can also provide data for segmentations targeting a 
+# different organ
+#
+# FIXME add all organ volumes from dixon (7) + pancreas t1w (1)
+# FIXME remove loglin fit from liver
 IDPDEF = {
     "liver" : {
         "dixon" : {
@@ -105,6 +110,36 @@ IDPDEF = {
                 ("pdff", "presco"),
             ]
         }
+    },
+    "kidney_medulla" : {
+        "t1" : {
+            "" :  [
+                ("t1", "")
+            ],
+            "kidney_gre" : [
+                ("t2star", "presco"),
+                ("r2star", "presco"),
+                ("t2star", "loglin"),
+                ("r2star", "loglin"),
+                ("iron", "presco"),
+                ("pdff", "presco"),
+            ]
+        }
+    },
+    "kidney_cortex" : {
+        "t1" : {
+            "" :  [
+                ("t1", "")
+            ],
+            "kidney_gre" : [
+                ("t2star", "presco"),
+                ("r2star", "presco"),
+                ("t2star", "loglin"),
+                ("r2star", "loglin"),
+                ("iron", "presco"),
+                ("pdff", "presco"),
+            ]
+        }
     }
 }
 
@@ -123,10 +158,13 @@ def get_seg_vol(df, organ, seg, grid):
         col_name += f"_regrid_{grid}"
     if col_name in list(df.columns):
         n, vol = df[col_name]
-        return int(n), vol
+        if n == 0:
+            return "", ""
+        else:
+            return int(n), vol
     else:
         LOG.warning(f"No volume found for segmentation: {col_name}")
-        return 0, 0
+        return "", ""
 
 def strip_repeats(col_names):
     new_col_names = []
@@ -191,11 +229,13 @@ def main():
                         if method:
                             col_name += f"_{method}"
                             param_name += f"_{method}"
-                        if col_name in list(loaded_stats[stats_dataset].columns):
+                        LOG.debug(f"Looking for column: {col_name}")
+                        if n and col_name in list(loaded_stats[stats_dataset].columns):
                             mean = loaded_stats[stats_dataset][col_name]["Mean"]
                             std = loaded_stats[stats_dataset][col_name]["Std"]
                             median = loaded_stats[stats_dataset][col_name]["Median"]
                         else:
+                            LOG.debug(f"Not found: {col_name}")
                             mean, std, median = "", "", ""
 
                         if subj_idx == 0:
