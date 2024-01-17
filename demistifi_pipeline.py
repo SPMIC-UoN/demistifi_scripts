@@ -17,10 +17,11 @@ class ArgumentParser(argparse.ArgumentParser):
         self.add_argument("--output", required=True, help="Output directory")
         self.add_argument("--subjids", required=True, help="File containing subject IDs to process")
         self.add_argument("--subjid-idx", type=int, help="Index of individual subject ID to process (starting at 1). If not specified, process all")        
-        self.add_argument("--skip-preproc", action='store_true', default=False, help="Skip r_coh preprocessing step")
+        self.add_argument("--skip-rcoh", action='store_true', default=False, help="Skip r_coh preprocessing step")    
+        self.add_argument("--skip-renal-preproc", action='store_true', default=False, help="Skip renal_preproc step")
         self.add_argument("--skip-seg", action='store_true', default=False, help="Skip segmentation steps")
         self.add_argument("--skip-stats", action='store_true', default=False, help="Skip statistics generation")
-        self.add_argument("--seg-models-dir", default="/software/imaging/ukbbseg/ukbb-mri-sseg/trained_models", help="Directory contained trained segmentation models")
+        self.add_argument("--seg-models-dir", default="/spmstore/project/RenalMRI/trained_models", help="Directory contained trained segmentation models")
 
 def link(srcdir, srcfile, destdir, destfile):
     """
@@ -29,10 +30,11 @@ def link(srcdir, srcfile, destdir, destfile):
     srcfiles = list(glob.glob(os.path.join(srcdir, f"{srcfile}.nii.gz")))
     if not srcfiles:
         print(f"WARNING: Could not create link for output file {destfile} - source file {srcfile} not found")
+        return
     elif len(srcfiles) > 1:
-        print(f"WARNING: Could not create link for output file {destfile} - multiple source files {srcfile} found")
-    else:
-        os.symlink(srcfiles[0], os.path.join(destdir, f"{destfile}.nii.gz"))
+        print(f"WARNING: Creating link for output file {destfile} - multiple source files {srcfile} found, using first")
+
+    os.symlink(srcfiles[0], os.path.join(destdir, f"{destfile}.nii.gz"))
 
 def get_preproc_subjid(preproc_basedir):
     """
@@ -79,6 +81,7 @@ def run(cmd):
     """
     Run a command and raise exception if it fails
     """
+    print(cmd)
     retval = os.system(cmd)
     if retval != 0:
         print(f"WARNING: command\n{cmd}\nreturned non-zero exit state {retval}")
@@ -96,41 +99,43 @@ def main():
 
         print(f"Running subject {subjid}")
         subj_outdir = os.path.join(options.output, subjid)
+        #if os.path.isfile(os.path.join(subj_outdir, "stats", "seg_volumes.tsv")):
+        #    print(" - Stats output found - skipping")
+        #    continue
         
         preproc_basedir = os.path.join(subj_outdir, "preproc")
-        if not options.skip_preproc:
+        if not options.skip_rcoh:
             print(f"Doing r-coh preprocessing for subject {subjid}")
             os.makedirs(preproc_basedir, exist_ok=True)
             run(f'r-coh.py process \
                 "{subj_indir}" \
                 "{preproc_basedir}" \
                 --biobank-project=None \
-                >"{subj_outdir}/logfile.txt" 2>&1')
+                >"{subj_outdir}/rcoh_logfile.txt" 2>&1')
             subjid_preproc, preproc_outdir = get_preproc_subjid(preproc_basedir)
-            os.rename(f"{subj_outdir}/logfile.txt", f"{preproc_outdir}/preproc_logfile.txt")
-        
+            os.rename(f"{subj_outdir}/rcoh_logfile.txt", f"{preproc_outdir}/rcoh_logfile.txt")
             r2star_to_t2star(os.path.join(preproc_outdir, "analysis"))
-
-            print(f"DONE preprocessing for subject {subjid}")
+            print(f"DONE r-coh preprocessing for subject {subjid}")
+        else:
+            subjid_preproc, preproc_outdir = get_preproc_subjid(preproc_basedir)
         
+        renal_outdir = os.path.join(preproc_basedir, subjid_preproc, "renal")
+        with open(os.path.join(subj_outdir, "subjid.txt"), "w") as f:
+            f.write(f"{subjid_preproc}\n")
+
+        if not options.skip_renal_preproc:
             print(f"Doing renal preprocessing for subject {subjid}")
-            renal_outdir = os.path.join(preproc_basedir, subjid_preproc, "renal")
             os.makedirs(renal_outdir, exist_ok=True)
             run(f'renal-preproc \
                 --indir "{preproc_outdir}/tmp/dicom_series/" \
-                --outdir "{preproc_outdir}/renal" \
-                --t2star-matcher=_gre_ --t2star-method=loglin \
+                --outdir "{renal_outdir}" \
+                --t2star-matcher=_gre_ --t2star-method=all \
+                --b0-matcher=_gre_ \
+                --t1-matcher=MOLLI \
                 --overwrite \
                 >"{preproc_outdir}/renal_logfile.txt" 2>&1')
-            correct_r2star_units(renal_outdir)
             print(f"DONE renal preprocessing for subject {subjid}")
-        else:
-            subjid_preproc, preproc_outdir = get_preproc_subjid(preproc_basedir)
-            renal_outdir = os.path.join(preproc_outdir, "renal")
 
-        with open(os.path.join(subj_outdir, "subjid.txt"), "w") as f:
-            f.write(f"{subjid_preproc}\n")
-          
         nifti_dir = os.path.join(preproc_outdir, "nifti")
         tmp_nifti_dir = os.path.join(preproc_outdir, "tmp", "nifti_series")
         analysis_dir = os.path.join(preproc_outdir, "analysis")
@@ -140,12 +145,13 @@ def main():
             os.makedirs(seg_outdir, exist_ok=True)
             
             print(f"Doing kidney T1 segmentation for subject {subjid}")
-            kidney_t1_model = os.path.join(options.seg_models_dir, "kidney_t1.pt")
+            kidney_t1_model = os.path.join(options.seg_models_dir, "kidney_t1_molli_zero_center.pt")
             run(f'kidney_t1_seg \
                 --input {options.output} \
                 --t1=preproc/{subjid_preproc}/tmp/nifti_series/*ShMOLLI*kidney_T1MAP.nii.gz \
                 --subjid={subjid} \
                 --model {kidney_t1_model} \
+                --preprocess zero_center \
                 --output={options.output} \
                 --outprefix=seg/kidney_t1_seg/seg_kidney \
                 >"{seg_outdir}/kidney_t1_logfile.txt" 2>&1')
@@ -198,8 +204,11 @@ def main():
             # Segmentations
             link(seg_outdir, f"pancreas_t1w_sseg/{subjid_preproc}", qp_data_dir, "seg_pancreas_t1w")
             link(seg_outdir, f"ideal_liver_seg/{subjid_preproc}", qp_data_dir, "seg_liver_ideal")
-            link(seg_outdir, f"kidney_t1_seg/seg_kidney_medulla_t1", qp_data_dir, "seg_kidney_medulla_t1")
-            link(seg_outdir, f"kidney_t1_seg/seg_kidney_cortex_t1", qp_data_dir, "seg_kidney_cortex_t1")
+            link(seg_outdir, f"kidney_t1_seg/seg_kidney_medulla_l_t1", qp_data_dir, "seg_kidney_medulla_l_t1")
+            link(seg_outdir, f"kidney_t1_seg/seg_kidney_cortex_l_t1", qp_data_dir, "seg_kidney_cortex_l_t1")
+            link(seg_outdir, f"kidney_t1_seg/seg_kidney_medulla_r_t1", qp_data_dir, "seg_kidney_medulla_r_t1")
+            link(seg_outdir, f"kidney_t1_seg/seg_kidney_cortex_r_t1", qp_data_dir, "seg_kidney_cortex_r_t1")
+            link(seg_outdir, f"kidney_t1_seg/seg_kidney_all_t1", qp_data_dir, "seg_kidney_all_t1")
             link(seg_outdir, f"knee_to_neck_dixon_seg/otsu_prob_argmax_liver", qp_data_dir, "seg_liver_dixon")
             link(seg_outdir, f"knee_to_neck_dixon_seg/otsu_prob_argmax_kidney_right", qp_data_dir, "seg_kidney_right_dixon")
             link(seg_outdir, f"knee_to_neck_dixon_seg/otsu_prob_argmax_kidney_left", qp_data_dir, "seg_kidney_left_dixon")
@@ -208,10 +217,14 @@ def main():
             link(seg_outdir, f"knee_to_neck_dixon_seg/otsu_prob_argmax_body_cavity", qp_data_dir, "seg_body_cavity_dixon")
             link(seg_outdir, f"knee_to_neck_dixon_seg/otsu_prob_argmax_abdominal_cavity", qp_data_dir, "seg_abdominal_cavity_dixon")
 
+            run(f'fslmaths {qp_data_dir}/seg_kidney_right_dixon -add {qp_data_dir}/seg_kidney_left_dixon {qp_data_dir}/seg_kidney_all_dixon')
+            
             # Preproc outputs
             link(analysis_dir, "multiecho.pancreas_presco_t2star", qp_data_dir, "t2star_pancreas_gre_presco")
+            link(analysis_dir, "multiecho.pancreas_presco_b0", qp_data_dir, "b0_pancreas_gre_presco")
             link(analysis_dir, "multiecho.kidney_presco_t2star", qp_data_dir, "t2star_kidney_gre_presco")
             link(analysis_dir, "ideal.liver_presco_t2star", qp_data_dir, "t2star_liver_ideal_presco")
+            link(analysis_dir, "ideal.liver_presco_b0", qp_data_dir, "b0_liver_ideal_presco")
             link(analysis_dir, "multiecho.pancreas_presco_r2star", qp_data_dir, "r2star_pancreas_gre_presco")
             link(analysis_dir, "multiecho.kidney_presco_r2star", qp_data_dir, "r2star_kidney_gre_presco")
             link(analysis_dir, "ideal.liver_presco_r2star", qp_data_dir, "r2star_liver_ideal_presco")
@@ -221,22 +234,133 @@ def main():
             link(analysis_dir, "multiecho.pancreas_presco_pdff", qp_data_dir, "pdff_pancreas_gre_presco")
             link(analysis_dir, "multiecho.kidney_presco_pdff", qp_data_dir, "pdff_kidney_gre_presco")
             link(analysis_dir, "ideal.liver_presco_pdff", qp_data_dir, "pdff_liver_ideal_presco")
+            link(analysis_dir, "fat.percent", qp_data_dir, "fat_fraction")
             link(tmp_nifti_dir, "*_ShMOLLI_*LIVER_T1MAP", qp_data_dir, "t1_liver_molli")
             link(tmp_nifti_dir, "*_ShMOLLI_*pancreas_T1MAP", qp_data_dir, "t1_pancreas_molli")
             link(tmp_nifti_dir, "*_ShMOLLI_*kidney_T1MAP", qp_data_dir, "t1_kidney_molli")
 
+            
             # Parameter maps
             #link(nifti_dir, "multiecho_pancreas_magnitude", qp_data_dir, "multiecho_pancreas")
             #link(nifti_dir, "ideal_liver_magnitude", qp_data_dir, "multiecho_liver")
 
             # Renal preproc outputs
-            link(renal_outdir, "*_gre_*_pancreas*/t2star_out/*_loglin_t2star_map", qp_data_dir, "t2star_pancreas_gre_loglin")
-            link(renal_outdir, "*_gre_*_pancreas*/t2star_out/*_loglin_r2star_map", qp_data_dir, "r2star_pancreas_gre_loglin")
-            link(renal_outdir, "*_gre_*_kidney*/t2star_out/*_loglin_t2star_map", qp_data_dir, "t2star_kidney_gre_loglin")
-            link(renal_outdir, "*_gre_*_kidney*/t2star_out/*_loglin_r2star_map", qp_data_dir, "r2star_kidney_gre_loglin")
-            link(renal_outdir, "*_gre_*_liver*/t2star_out/*_loglin_t2star_map", qp_data_dir, "t2star_liver_gre_loglin")
-            link(renal_outdir, "*_gre_*_liver*/t2star_out/*_loglin_r2star_map", qp_data_dir, "r2star_liver_gre_loglin")
+            link(renal_outdir, "*_gre_*_pancreas*/t2star_out/map_t2star_*_loglin", qp_data_dir, "t2star_pancreas_gre_loglin")
+            link(renal_outdir, "*_gre_*_pancreas*/t2star_out/map_r2star_*_loglin", qp_data_dir, "r2star_pancreas_gre_loglin")
+            link(renal_outdir, "*_gre_*_pancreas*/t2star_out/map_t2star_*_exp", qp_data_dir, "t2star_pancreas_gre_exp")
+            link(renal_outdir, "*_gre_*_pancreas*/t2star_out/map_r2star_*_exp", qp_data_dir, "r2star_pancreas_gre_exp")
+            link(renal_outdir, "*_gre_*_kidney*/t2star_out/map_t2star_*_loglin", qp_data_dir, "t2star_kidney_gre_loglin")
+            link(renal_outdir, "*_gre_*_kidney*/t2star_out/map_r2star_*_loglin", qp_data_dir, "r2star_kidney_gre_loglin")
+            link(renal_outdir, "*_gre_*_kidney*/t2star_out/map_t2star_*_exp", qp_data_dir, "t2star_kidney_gre_exp")
+            link(renal_outdir, "*_gre_*_kidney*/t2star_out/map_r2star_*_exp", qp_data_dir, "r2star_kidney_gre_exp")
+            link(renal_outdir, "*_gre_*_liver*/t2star_out/map_t2star_*_loglin", qp_data_dir, "t2star_liver_gre_loglin")
+            link(renal_outdir, "*_gre_*_liver*/t2star_out/map_r2star_*_loglin", qp_data_dir, "r2star_liver_gre_loglin")
+            link(renal_outdir, "*_gre_*_liver*/t2star_out/map_t2star_*_exp", qp_data_dir, "t2star_liver_gre_exp")
+            link(renal_outdir, "*_gre_*_liver*/t2star_out/map_r2star_*_exp", qp_data_dir, "r2star_liver_gre_exp")
+
+            # VAT/ASAT outputs
+            vat_asat_outdir = os.path.join(subj_outdir, "vat")
+            link(vat_asat_outdir, "vat/vat", qp_data_dir, "vat")
+            link(vat_asat_outdir, "asat/asat", qp_data_dir, "asat")
+
             print(f"DONE Linking segmentation and data sets for subject {subjid}")
+
+            print(f"Doing overlays of segmentations on MOLLI data for subject {subjid}")
+            run(f'renal-preproc-overlay \
+                --bg={qp_data_dir}/t1_liver_molli.nii.gz \
+                --seg={qp_data_dir}/seg_liver_dixon.nii.gz \
+                --output={seg_outdir}/seg_liver_dixon_lightbox.png \
+                --subjid={subjid} --overwrite \
+                >"{seg_outdir}/seg_liver_dixon_lightbox.txt" 2>&1')
+            run(f'renal-preproc-overlay \
+                --bg={qp_data_dir}/t1_liver_molli.nii.gz \
+                --seg={qp_data_dir}/seg_spleen_dixon.nii.gz \
+                --output={seg_outdir}/seg_spleen_dixon_lightbox.png \
+                --subjid={subjid} --overwrite  \
+                >"{seg_outdir}/seg_spleen_dixon_lightbox.txt" 2>&1')
+            run(f'renal-preproc-overlay \
+                --bg={qp_data_dir}/t1_pancreas_molli.nii.gz \
+                --seg={qp_data_dir}/seg_pancreas_t1w.nii.gz \
+                --output={seg_outdir}/seg_pancreas_t1w_lightbox.png \
+                --subjid={subjid} --overwrite  \
+                >"{seg_outdir}/seg_pancreas_t1w_lightbox.txt" 2>&1')
+            run(f'renal-preproc-overlay \
+                --bg={qp_data_dir}/t1_kidney_molli.nii.gz \
+                --seg={qp_data_dir}/seg_spleen_dixon.nii.gz \
+                --output={seg_outdir}/seg_spleen_dixon_lightbox.png \
+                --subjid={subjid} --overwrite  \
+                >"{seg_outdir}/seg_spleen_dixon_lightbox.txt" 2>&1')
+            print(f"DONE overlays of segmentations on MOLLI data for subject {subjid}")
+
+            print(f"Cleaning T1 segmentation using DIXON kidney segs for subject {subjid}")
+            run(f'renal-preproc-clean \
+                --seg={seg_outdir}/kidney_t1_seg/seg_kidney_medulla_l_orig_t1.nii.gz \
+                --mask={qp_data_dir}/seg_kidney_left_dixon.nii.gz \
+                --dil=2 \
+                --output={qp_data_dir}/seg_kidney_medulla_l_t1_clean.nii.gz \
+                --overwrite \
+                >"{seg_outdir}/kidney_t1_seg/seg_kidney_medulla_l_t1_clean.txt" 2>&1')
+            run(f'renal-preproc-overlay \
+                --bg={qp_data_dir}/t1_kidney_molli.nii.gz \
+                --seg={qp_data_dir}/seg_kidney_medulla_l_t1_clean.nii.gz \
+                --output={seg_outdir}/kidney_t1_seg/seg_kidney_medulla_l_t1_clean_lightbox.png \
+                --subjid={subjid} --overwrite \
+                >"{seg_outdir}/kidney_t1_seg/seg_kidney_medulla_l_t1_clean_lightbox.txt" 2>&1')
+            run(f'renal-preproc-clean \
+                --seg={seg_outdir}/kidney_t1_seg/seg_kidney_medulla_r_orig_t1.nii.gz \
+                --mask={qp_data_dir}/seg_kidney_right_dixon.nii.gz \
+                --dil=2 \
+                --output={qp_data_dir}/seg_kidney_medulla_r_t1_clean.nii.gz \
+                --overwrite \
+                >"{seg_outdir}/kidney_t1_seg/seg_kidney_medulla_r_t1_clean.txt" 2>&1')
+            run(f'renal-preproc-overlay \
+                --bg={qp_data_dir}/t1_kidney_molli.nii.gz \
+                --seg={qp_data_dir}/seg_kidney_medulla_r_t1_clean.nii.gz \
+                --output={seg_outdir}/kidney_t1_seg/seg_kidney_medulla_r_t1_clean_lightbox.png \
+                --subjid={subjid} --overwrite \
+                >"{seg_outdir}/kidney_t1_seg/seg_kidney_medulla_r_t1_clean_lightbox.txt" 2>&1')
+            run(f'renal-preproc-clean \
+                --seg={seg_outdir}/kidney_t1_seg/seg_kidney_cortex_l_orig_t1.nii.gz \
+                --mask={qp_data_dir}/seg_kidney_left_dixon.nii.gz \
+                --dil=2 \
+                --output={qp_data_dir}/seg_kidney_cortex_l_t1_clean.nii.gz \
+                --overwrite \
+                >"{seg_outdir}/kidney_t1_seg/seg_kidney_cortex_l_t1_clean.txt" 2>&1')
+            run(f'renal-preproc-overlay \
+                --bg={qp_data_dir}/t1_kidney_molli.nii.gz \
+                --seg={qp_data_dir}/seg_kidney_cortex_l_t1_clean.nii.gz \
+                --output={seg_outdir}/kidney_t1_seg/seg_kidney_cortex_l_t1_clean_lightbox.png \
+                --subjid={subjid} --overwrite \
+                >"{seg_outdir}/kidney_t1_seg/seg_kidney_cortex_l_t1_clean_lightbox.txt" 2>&1')
+            run(f'renal-preproc-clean \
+                --seg={seg_outdir}/kidney_t1_seg/seg_kidney_cortex_r_orig_t1.nii.gz \
+                --mask={qp_data_dir}/seg_kidney_right_dixon.nii.gz \
+                --dil=2 \
+                --output={qp_data_dir}/seg_kidney_cortex_r_t1_clean.nii.gz \
+                --overwrite \
+                >"{seg_outdir}/kidney_t1_seg/seg_kidney_cortex_r_t1_clean.txt" 2>&1')
+            run(f'renal-preproc-overlay \
+                --bg={qp_data_dir}/t1_kidney_molli.nii.gz \
+                --seg={qp_data_dir}/seg_kidney_cortex_r_t1_clean.nii.gz \
+                --output={seg_outdir}/kidney_t1_seg/seg_kidney_cortex_r_t1_clean_lightbox.png \
+                --subjid={subjid} --overwrite \
+                >"{seg_outdir}/kidney_t1_seg/seg_kidney_cortex_r_t1_clean_lightbox.txt" 2>&1')
+            
+            run(f'renal-preproc-clean \
+                --seg={seg_outdir}/kidney_t1_seg/seg_kidney_all_t1.nii.gz \
+                --mask={qp_data_dir}/seg_kidney_all_dixon.nii.gz \
+                --dil=2 \
+                --output={qp_data_dir}/seg_kidney_all_t1_clean.nii.gz \
+                --overwrite \
+                >"{seg_outdir}/kidney_t1_seg/seg_kidney_all_t1_clean.txt" 2>&1')
+            run(f'renal-preproc-overlay \
+                --bg={qp_data_dir}/t1_kidney_molli.nii.gz \
+                --seg={qp_data_dir}/seg_kidney_all_t1_clean.nii.gz \
+                --output={seg_outdir}/kidney_t1_seg/seg_kidney_all_t1_clean_lightbox.png \
+                --subjid={subjid} --overwrite \
+                >"{seg_outdir}/kidney_t1_seg/seg_kidney_all_t1_clean_lightbox.txt" 2>&1')
+            
+            print(f"DONE Cleaning T1 segmentation using DIXON kidney segs for subject {subjid}")
 
             print(f"Extracting ROI stats for subject {subjid}")
             qp_script = os.path.join(os.path.dirname(sys.argv[0]), "resample_and_stats.qp")
@@ -248,7 +372,7 @@ def main():
                     for line in f.readlines():
                         of.write(line.replace("SUBJID", subjid).replace("OUTDIR", options.output))
             run(f'quantiphyse \
-                --batch={qp_data_dir}/resample_and_stats.qp \
+                --batch={qp_data_dir}/resample_and_stats.qp  \
                 >"{qp_data_dir}/qp_logfile.txt" 2>&1')
             print(f"DONE Extracting ROI stats for subject {subjid}")
 
